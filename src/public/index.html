@@ -10,632 +10,677 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-  <!-- Toast Notification Container -->
+
+  <!-- Toast Container -->
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
-  <!-- Header -->
-  <header class="app-header">
-    <div class="header-inner">
-      <div class="brand">
-        <div class="brand-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <!-- Mobile sidebar backdrop -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- App Shell -->
+  <div class="app-shell">
+
+    <!-- ===================== SIDEBAR ===================== -->
+    <aside class="sidebar" id="appSidebar" role="navigation" aria-label="Main navigation">
+
+      <!-- Brand -->
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="1" y="3" width="15" height="13"></rect>
             <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
             <circle cx="5.5" cy="18.5" r="2.5"></circle>
             <circle cx="18.5" cy="18.5" r="2.5"></circle>
           </svg>
         </div>
-        <div>
-          <div class="brand-title">
-            <span class="brand-bold">FleetWise</span>
-            <span class="badge badge-system">Dispatcher OS</span>
-          </div>
-          <div class="brand-sub">Centralized Vehicle & Delivery Assignment System</div>
+        <div class="sidebar-brand-text">
+          <div class="sidebar-brand-name">FleetWise</div>
+          <div class="sidebar-brand-sub">Dispatcher OS</div>
         </div>
       </div>
 
-      <div class="header-controls">
-        <div class="role-selector-container">
-          <label for="userRoleSelect" class="role-label">Role:</label>
-          <select id="userRoleSelect" class="select-input select-sm" onchange="app.setUserRole(this.value)" title="Switch active role for access control">
-            <option value="fleet_manager" selected>Fleet Manager (Admin)</option>
-            <option value="dispatcher">Dispatcher (Operations)</option>
-          </select>
-        </div>
-        <div id="systemHealthBadge" class="health-badge health-checking">
-          <span class="health-dot"></span>
-          <span id="healthText">Connecting...</span>
-        </div>
-        <button id="btnSeedDemo" class="btn btn-secondary btn-sm" title="Seed realistic test fleet, drivers and deliveries">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-          </svg>
-          Seed Demo Data
-        </button>
-        <button id="btnRefreshAll" class="btn btn-secondary btn-sm" title="Refresh all data">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M23 4v6h-6"></path>
-            <path d="M1 20v-6h6"></path>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-          </svg>
-          Refresh
-        </button>
-        <div class="quick-actions">
-          <button id="btnOpenNewDeliveryModal" class="btn btn-primary btn-sm">
-            <span>+</span> New Delivery
-          </button>
-        </div>
-      </div>
-    </div>
-  </header>
+      <!-- Navigation -->
+      <nav class="sidebar-nav" role="tablist">
 
-  <!-- Main Container -->
-  <main class="main-layout">
-    
-    <!-- KPI Analytics Section -->
-    <section class="kpi-section" aria-label="Operational Metrics">
-      <div class="kpi-grid">
-        <!-- Card 1: Total Vehicles -->
-        <div class="kpi-card" id="kpiVehiclesCard">
-          <div class="kpi-header">
-            <span class="kpi-title">Fleet Vehicles</span>
-            <span class="kpi-icon icon-blue">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="1" y="3" width="15" height="13"></rect>
-                <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
-                <circle cx="5.5" cy="18.5" r="2.5"></circle>
-                <circle cx="18.5" cy="18.5" r="2.5"></circle>
-              </svg>
-            </span>
-          </div>
-          <div class="kpi-value" id="kpiTotalVehicles">0</div>
-          <div class="kpi-sub">
-            <span class="sub-item text-success"><strong id="kpiAvailableVehicles">0</strong> Available</span>
-            <span class="sub-sep">•</span>
-            <span class="sub-item text-primary"><strong id="kpiAssignedVehicles">0</strong> Assigned</span>
-            <span class="sub-sep">•</span>
-            <span class="sub-item text-warning"><strong id="kpiMaintenanceVehicles">0</strong> Maint.</span>
-          </div>
-        </div>
+        <div class="sidebar-section-label">Operations</div>
 
-        <!-- Card 2: Driver Roster -->
-        <div class="kpi-card" id="kpiDriversCard">
-          <div class="kpi-header">
-            <span class="kpi-title">Driver Roster</span>
-            <span class="kpi-icon icon-emerald">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-            </span>
-          </div>
-          <div class="kpi-value" id="kpiTotalDrivers">0</div>
-          <div class="kpi-sub">
-            <span class="sub-item text-success"><strong id="kpiAvailableDrivers">0</strong> Available</span>
-            <span class="sub-sep">•</span>
-            <span class="sub-item text-primary"><strong id="kpiAssignedDrivers">0</strong> Assigned</span>
-            <span class="sub-sep">•</span>
-            <span class="sub-item text-danger"><strong id="kpiUnavailableDrivers">0</strong> Unavail.</span>
-          </div>
-        </div>
-
-        <!-- Card 3: Pending Deliveries -->
-        <div class="kpi-card kpi-highlight-amber" id="kpiPendingCard">
-          <div class="kpi-header">
-            <span class="kpi-title">Pending Dispatch</span>
-            <span class="kpi-icon icon-amber">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-            </span>
-          </div>
-          <div class="kpi-value text-amber" id="kpiPendingDeliveries">0</div>
-          <div class="kpi-sub">Awaiting vehicle & driver allocation</div>
-        </div>
-
-        <!-- Card 4: Active Deliveries -->
-        <div class="kpi-card" id="kpiActiveCard">
-          <div class="kpi-header">
-            <span class="kpi-title">Active Deliveries</span>
-            <span class="kpi-icon icon-purple">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-              </svg>
-            </span>
-          </div>
-          <div class="kpi-value text-purple" id="kpiActiveDeliveries">0</div>
-          <div class="kpi-sub">
-            <span class="sub-item"><strong id="kpiAssignedDel">0</strong> Assigned</span>
-            <span class="sub-sep">•</span>
-            <span class="sub-item"><strong id="kpiInTransitDel">0</strong> In Transit</span>
-          </div>
-        </div>
-
-        <!-- Card 5: Completed Deliveries & Fleet Utilization -->
-        <div class="kpi-card" id="kpiCompletedCard">
-          <div class="kpi-header">
-            <span class="kpi-title">Completed Deliveries</span>
-            <span class="kpi-icon icon-green">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            </span>
-          </div>
-          <div class="kpi-value text-success" id="kpiCompletedDeliveries">0</div>
-          <div class="kpi-sub">
-            <span>Fleet Utilization: <strong id="kpiUtilizationRate">0%</strong></span>
-            <span class="sub-sep">•</span>
-            <span class="text-muted"><strong id="kpiCancelledDeliveries">0</strong> Cancelled</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Live Delivery Status Progress Bar -->
-      <div class="chart-container">
-        <div class="chart-header">
-          <div class="chart-title">Delivery Status Distribution</div>
-          <div class="chart-legend" id="chartLegend">
-            <span class="legend-item"><span class="legend-color color-pending"></span> Pending</span>
-            <span class="legend-item"><span class="legend-color color-assigned"></span> Assigned</span>
-            <span class="legend-item"><span class="legend-color color-intransit"></span> In Transit</span>
-            <span class="legend-item"><span class="legend-color color-delivered"></span> Delivered</span>
-            <span class="legend-item"><span class="legend-color color-cancelled"></span> Cancelled</span>
-          </div>
-        </div>
-        <div class="status-progress-bar" id="statusBarContainer" title="Distribution of deliveries by status">
-          <div id="barPending" class="bar-segment color-pending" style="width: 0%"></div>
-          <div id="barAssigned" class="bar-segment color-assigned" style="width: 0%"></div>
-          <div id="barInTransit" class="bar-segment color-intransit" style="width: 0%"></div>
-          <div id="barDelivered" class="bar-segment color-delivered" style="width: 0%"></div>
-          <div id="barCancelled" class="bar-segment color-cancelled" style="width: 0%"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Navigation Tabs & View Toggles -->
-    <div class="view-navigation">
-      <div class="tabs-list" role="tablist">
-        <button id="tabDeliveries" class="tab-button active" role="tab" aria-selected="true">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button id="tabDeliveries" class="sidebar-nav-item active" role="tab" aria-selected="true"
+                onclick="app.switchView('deliveries')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
             <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
           </svg>
-          Deliveries Table
-          <span class="tab-count" id="countTabDeliveries">0</span>
+          <span class="sidebar-nav-label">Deliveries</span>
+          <span class="sidebar-nav-badge" id="countTabDeliveries">0</span>
         </button>
-        <button id="tabBoard" class="tab-button" role="tab" aria-selected="false">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+        <button id="tabBoard" class="sidebar-nav-item" role="tab" aria-selected="false"
+                onclick="app.switchView('board')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="7" height="18" rx="1"></rect>
             <rect x="14" y="3" width="7" height="18" rx="1"></rect>
           </svg>
-          Status Board
+          <span class="sidebar-nav-label">Status Board</span>
         </button>
-        <button id="tabVehicles" class="tab-button" role="tab" aria-selected="false">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+        <button id="tabQueue" class="sidebar-nav-item" role="tab" aria-selected="false"
+                onclick="app.switchView('queue')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          <span class="sidebar-nav-label">Priority Queue</span>
+          <span class="sidebar-nav-badge urgent" id="countTabQueue">0</span>
+        </button>
+
+        <div class="sidebar-section-label">Fleet</div>
+
+        <button id="tabVehicles" class="sidebar-nav-item" role="tab" aria-selected="false"
+                onclick="app.switchView('vehicles')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="1" y="3" width="15" height="13"></rect>
             <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
             <circle cx="5.5" cy="18.5" r="2.5"></circle>
             <circle cx="18.5" cy="18.5" r="2.5"></circle>
           </svg>
-          Vehicle Fleet
-          <span class="tab-count" id="countTabVehicles">0</span>
+          <span class="sidebar-nav-label">Vehicles</span>
+          <span class="sidebar-nav-badge" id="countTabVehicles">0</span>
         </button>
-        <button id="tabDrivers" class="tab-button" role="tab" aria-selected="false">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+        <button id="tabDrivers" class="sidebar-nav-item" role="tab" aria-selected="false"
+                onclick="app.switchView('drivers')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
             <circle cx="12" cy="7" r="4"></circle>
           </svg>
-          Driver Roster
-          <span class="tab-count" id="countTabDrivers">0</span>
+          <span class="sidebar-nav-label">Drivers</span>
+          <span class="sidebar-nav-badge" id="countTabDrivers">0</span>
         </button>
-        <button id="tabQueue" class="tab-button" role="tab" aria-selected="false">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-          </svg>
-          Priority Queue
-          <span class="tab-count badge-urgent" id="countTabQueue">0</span>
-        </button>
-        <button id="tabAnalytics" class="tab-button" role="tab" aria-selected="false">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+        <div class="sidebar-section-label">Insights</div>
+
+        <button id="tabAnalytics" class="sidebar-nav-item" role="tab" aria-selected="false"
+                onclick="app.switchView('analytics')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="20" x2="18" y2="10"></line>
             <line x1="12" y1="20" x2="12" y2="4"></line>
             <line x1="6" y1="20" x2="6" y2="14"></line>
           </svg>
-          Fleet Analytics
+          <span class="sidebar-nav-label">Fleet Analytics</span>
         </button>
-        <button id="tabAudit" class="tab-button" role="tab" aria-selected="false">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+        <button id="tabAudit" class="sidebar-nav-item" role="tab" aria-selected="false"
+                onclick="app.switchView('audit')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
             <polyline points="14 2 14 8 20 8"></polyline>
             <line x1="16" y1="13" x2="8" y2="13"></line>
             <line x1="16" y1="17" x2="8" y2="17"></line>
-            <polyline points="10 9 9 9 8 9"></polyline>
           </svg>
-          Audit Trail
+          <span class="sidebar-nav-label">Audit Trail</span>
         </button>
-      </div>
 
-      <div class="tab-context-actions">
-        <button id="btnCreateVehicleFromTab" class="btn btn-secondary btn-sm" style="display: none;" onclick="app.openNewVehicleModal()">
-          + Add Vehicle
-        </button>
-        <button id="btnCreateDriverFromTab" class="btn btn-secondary btn-sm" style="display: none;" onclick="app.openNewDriverModal()">
-          + Add Driver
-        </button>
-      </div>
-    </div>
+      </nav>
 
-    <!-- Filters & Search Toolbar -->
-    <div class="toolbar">
-      <div class="search-box">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
-        <input type="text" id="searchInput" placeholder="Search by ID, route, vehicle reg, or driver..." />
-      </div>
-
-      <div class="filter-controls">
-        <div class="filter-group" id="filterStatusGroup">
-          <label for="filterStatus">Status:</label>
-          <select id="filterStatus" class="select-input">
-            <option value="">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="assigned">Assigned</option>
-            <option value="in_transit">In Transit</option>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
+      <!-- Bottom: Role + Health -->
+      <div class="sidebar-bottom">
+        <div class="sidebar-role-block">
+          <div class="sidebar-role-label">Active Role</div>
+          <select id="userRoleSelect" class="sidebar-role-select"
+                  onchange="app.setUserRole(this.value)"
+                  title="Switch active role for access control">
+            <option value="fleet_manager" selected>Fleet Manager (Admin)</option>
+            <option value="dispatcher">Dispatcher (Operations)</option>
           </select>
         </div>
-
-        <div class="filter-group" id="filterPriorityGroup">
-          <label for="filterPriority">Priority:</label>
-          <select id="filterPriority" class="select-input">
-            <option value="">All Priorities</option>
-            <option value="urgent">Urgent</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
+        <div id="systemHealthBadge" class="sidebar-health health-checking">
+          <span class="health-dot"></span>
+          <span id="healthText">Connecting...</span>
         </div>
+      </div>
+    </aside>
+    <!-- end sidebar -->
 
-        <button id="btnResetFilters" class="btn btn-ghost btn-sm" title="Clear all search and filters">
-          Reset Filters
+    <!-- ===================== MAIN ======================== -->
+    <div class="main-content">
+
+      <!-- Top Bar -->
+      <header class="top-bar">
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle navigation">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
         </button>
-      </div>
-    </div>
 
-    <!-- VIEW 1: DELIVERIES TABLE -->
-    <section id="viewDeliveries" class="view-panel active">
-      <div class="table-card">
-        <div class="table-responsive">
-          <table class="data-table" id="deliveriesTable">
-            <thead>
-              <tr>
-                <th onclick="app.sortDeliveries('id')" class="sortable">Delivery ID <span id="sort_del_id"></span></th>
-                <th>Route (Pickup & Drop-off)</th>
-                <th onclick="app.sortDeliveries('time')" class="sortable">Scheduled Time <span id="sort_del_time"></span></th>
-                <th onclick="app.sortDeliveries('priority')" class="sortable">Priority <span id="sort_del_priority"></span></th>
-                <th onclick="app.sortDeliveries('status')" class="sortable">Status <span id="sort_del_status"></span></th>
-                <th>Assigned Vehicle</th>
-                <th>Assigned Driver</th>
-                <th class="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="deliveriesTableBody">
-              <!-- Populated dynamically -->
-            </tbody>
-          </table>
-        </div>
-        <div id="deliveriesEmptyState" class="empty-state" style="display: none;">
-          <div class="empty-icon">📦</div>
-          <h3>No Deliveries Found</h3>
-          <p class="text-muted">No delivery requests match the active search and filter criteria.</p>
-          <button class="btn btn-primary btn-sm" onclick="app.openNewDeliveryModal()">Create Delivery Request</button>
+        <div class="top-bar-title" id="pageTitle">Deliveries</div>
+
+        <div class="top-bar-search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Search deliveries, vehicles, drivers…" aria-label="Search">
         </div>
 
-        <!-- Pagination Controls -->
-        <div class="pagination-bar" id="deliveriesPaginationBar">
-          <span class="pagination-info" id="delPaginationInfo">Showing 0-0 of 0</span>
-          <div class="pagination-buttons">
-            <button class="btn btn-ghost btn-sm" id="btnDelPrev" onclick="app.prevPage('del')">Previous</button>
-            <span class="page-indicator" id="delPageIndicator">Page 1</span>
-            <button class="btn btn-ghost btn-sm" id="btnDelNext" onclick="app.nextPage('del')">Next</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- VIEW 2: STATUS BOARD (KANBAN PIPELINE) -->
-    <section id="viewBoard" class="view-panel" style="display: none;">
-      <div class="board-grid">
-        <!-- Column 1: Pending -->
-        <div class="board-column">
-          <div class="board-column-header header-pending">
-            <span class="board-column-title">Pending</span>
-            <span class="board-badge" id="boardCountPending">0</span>
-          </div>
-          <div class="board-cards-container" id="boardColPending"></div>
-        </div>
-
-        <!-- Column 2: Assigned -->
-        <div class="board-column">
-          <div class="board-column-header header-assigned">
-            <span class="board-column-title">Assigned</span>
-            <span class="board-badge" id="boardCountAssigned">0</span>
-          </div>
-          <div class="board-cards-container" id="boardColAssigned"></div>
-        </div>
-
-        <!-- Column 3: In Transit -->
-        <div class="board-column">
-          <div class="board-column-header header-intransit">
-            <span class="board-column-title">In Transit</span>
-            <span class="board-badge" id="boardCountInTransit">0</span>
-          </div>
-          <div class="board-cards-container" id="boardColInTransit"></div>
-        </div>
-
-        <!-- Column 4: Delivered -->
-        <div class="board-column">
-          <div class="board-column-header header-delivered">
-            <span class="board-column-title">Delivered</span>
-            <span class="board-badge" id="boardCountDelivered">0</span>
-          </div>
-          <div class="board-cards-container" id="boardColDelivered"></div>
-        </div>
-
-        <!-- Column 5: Cancelled -->
-        <div class="board-column">
-          <div class="board-column-header header-cancelled">
-            <span class="board-column-title">Cancelled</span>
-            <span class="board-badge" id="boardCountCancelled">0</span>
-          </div>
-          <div class="board-cards-container" id="boardColCancelled"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- VIEW 3: VEHICLES TABLE -->
-    <section id="viewVehicles" class="view-panel" style="display: none;">
-      <div class="table-card">
-        <div class="table-header-bar">
-          <div>
-            <h3>Vehicle Fleet Directory</h3>
-            <p class="text-muted text-sm">Commercial vehicles, capacity ratings, and active assignment states</p>
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="app.openNewVehicleModal()">+ Add New Vehicle</button>
-        </div>
-        <div class="table-responsive">
-          <table class="data-table" id="vehiclesTable">
-            <thead>
-              <tr>
-                <th>Vehicle ID</th>
-                <th>Reg. Number</th>
-                <th>Type</th>
-                <th>Capacity (kg)</th>
-                <th>Status</th>
-                <th>Active Delivery</th>
-                <th>Status Control</th>
-                <th class="text-right">Manage</th>
-              </tr>
-            </thead>
-            <tbody id="vehiclesTableBody">
-              <!-- Populated dynamically -->
-            </tbody>
-          </table>
-        </div>
-        <div id="vehiclesEmptyState" class="empty-state" style="display: none;">
-          <div class="empty-icon">🚚</div>
-          <h3>No Vehicles Registered</h3>
-          <p class="text-muted">Register fleet vehicles or click "Seed Demo Data" above.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- VIEW 4: DRIVERS TABLE -->
-    <section id="viewDrivers" class="view-panel" style="display: none;">
-      <div class="table-card">
-        <div class="table-header-bar">
-          <div>
-            <h3>Driver Personnel Roster</h3>
-            <p class="text-muted text-sm">Driver roster, direct phone contacts, and active assignments</p>
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="app.openNewDriverModal()">+ Add New Driver</button>
-        </div>
-        <div class="table-responsive">
-          <table class="data-table" id="driversTable">
-            <thead>
-              <tr>
-                <th>Driver ID</th>
-                <th>Driver Name</th>
-                <th>Phone Number</th>
-                <th>Availability</th>
-                <th>Active Delivery</th>
-                <th>Availability Control</th>
-                <th class="text-right">Manage</th>
-              </tr>
-            </thead>
-            <tbody id="driversTableBody">
-              <!-- Populated dynamically -->
-            </tbody>
-          </table>
-        </div>
-        <div id="driversEmptyState" class="empty-state" style="display: none;">
-          <div class="empty-icon">👤</div>
-          <h3>No Drivers Registered</h3>
-          <p class="text-muted">Register drivers or click "Seed Demo Data" to load initial personnel.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- VIEW 5: PRIORITY DISPATCH QUEUE -->
-    <section id="viewQueue" class="view-panel" style="display: none;">
-      <div class="table-card">
-        <div class="table-header-bar">
-          <div>
-            <h3>Priority-Sorted Dispatch Queue</h3>
-            <p class="text-muted text-sm">Pending deliveries ranked strictly by urgency (Urgent &gt; High &gt; Medium &gt; Low) and scheduled time</p>
-          </div>
-          <button class="btn btn-secondary btn-sm" onclick="app.loadPriorityQueue()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="top-bar-actions">
+          <button id="btnSeedDemo" class="btn btn-secondary btn-sm" title="Seed realistic test fleet data">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            </svg>
+            Seed Demo
+          </button>
+          <button id="btnRefreshAll" class="btn btn-secondary btn-sm" title="Refresh all data">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M23 4v6h-6"></path>
               <path d="M1 20v-6h6"></path>
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
             </svg>
-            Refresh Queue
+            Refresh
+          </button>
+          <button id="btnOpenNewDeliveryModal" class="btn btn-primary btn-sm">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            New Delivery
           </button>
         </div>
-        <div class="table-responsive">
-          <table class="data-table" id="queueTable">
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Delivery ID</th>
-                <th>Priority</th>
-                <th>Route</th>
-                <th>Scheduled Time</th>
-                <th>Cargo / Type Req.</th>
-                <th class="text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody id="queueTableBody">
-              <!-- Populated dynamically -->
-            </tbody>
-          </table>
-        </div>
-        <div id="queueEmptyState" class="empty-state" style="display: none;">
-          <div class="empty-icon">🎉</div>
-          <h3>Priority Queue Clear</h3>
-          <p class="text-muted">No pending deliveries waiting for allocation. All requests have been assigned or completed.</p>
-        </div>
-      </div>
-    </section>
+      </header>
 
-    <!-- VIEW 6: PERFORMANCE & FLEET ANALYTICS -->
-    <section id="viewAnalytics" class="view-panel" style="display: none;">
-      <div class="analytics-layout">
-        <!-- Top metrics row -->
-        <div class="analytics-cards-grid">
-          <div class="kpi-card">
-            <span class="kpi-title">Fleet Deployment Rate</span>
-            <div class="kpi-value text-primary" id="anlFleetRate">0%</div>
-            <div class="progress-track">
-              <div class="progress-fill fill-primary" id="anlFleetProgress" style="width: 0%"></div>
+      <!-- Workspace -->
+      <main class="workspace">
+
+        <!-- ── KPI Cards (always visible) ────────────────── -->
+        <section aria-label="Operational Metrics">
+          <div class="kpi-grid">
+
+            <!-- Fleet Vehicles -->
+            <div class="kpi-card accent-blue" id="kpiVehiclesCard">
+              <div class="kpi-header">
+                <span class="kpi-title">Fleet Vehicles</span>
+                <span class="kpi-icon icon-blue" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="1" y="3" width="15" height="13"></rect>
+                    <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                  </svg>
+                </span>
+              </div>
+              <div class="kpi-value" id="kpiTotalVehicles">0</div>
+              <div class="kpi-sub">
+                <span class="sub-item text-success"><strong id="kpiAvailableVehicles">0</strong> Available</span>
+                <span class="sub-sep">•</span>
+                <span class="sub-item text-primary"><strong id="kpiAssignedVehicles">0</strong> Assigned</span>
+                <span class="sub-sep">•</span>
+                <span class="sub-item text-warning"><strong id="kpiMaintenanceVehicles">0</strong> Maint.</span>
+              </div>
             </div>
-            <div class="kpi-sub mt-2" id="anlFleetSub">0 of 0 vehicles active</div>
+
+            <!-- Driver Roster -->
+            <div class="kpi-card accent-green" id="kpiDriversCard">
+              <div class="kpi-header">
+                <span class="kpi-title">Driver Roster</span>
+                <span class="kpi-icon icon-emerald" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
+              </div>
+              <div class="kpi-value" id="kpiTotalDrivers">0</div>
+              <div class="kpi-sub">
+                <span class="sub-item text-success"><strong id="kpiAvailableDrivers">0</strong> Available</span>
+                <span class="sub-sep">•</span>
+                <span class="sub-item text-primary"><strong id="kpiAssignedDrivers">0</strong> Assigned</span>
+                <span class="sub-sep">•</span>
+                <span class="sub-item text-danger"><strong id="kpiUnavailableDrivers">0</strong> Unavail.</span>
+              </div>
+            </div>
+
+            <!-- Pending Dispatch -->
+            <div class="kpi-card accent-amber" id="kpiPendingCard">
+              <div class="kpi-header">
+                <span class="kpi-title">Pending Dispatch</span>
+                <span class="kpi-icon icon-amber" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                </span>
+              </div>
+              <div class="kpi-value text-warning" id="kpiPendingDeliveries">0</div>
+              <div class="kpi-sub">Awaiting vehicle &amp; driver allocation</div>
+            </div>
+
+            <!-- Active Deliveries -->
+            <div class="kpi-card accent-purple" id="kpiActiveCard">
+              <div class="kpi-header">
+                <span class="kpi-title">Active Deliveries</span>
+                <span class="kpi-icon icon-purple" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                  </svg>
+                </span>
+              </div>
+              <div class="kpi-value text-purple" id="kpiActiveDeliveries">0</div>
+              <div class="kpi-sub">
+                <span class="sub-item"><strong id="kpiAssignedDel">0</strong> Assigned</span>
+                <span class="sub-sep">•</span>
+                <span class="sub-item"><strong id="kpiInTransitDel">0</strong> In Transit</span>
+              </div>
+            </div>
+
+            <!-- Completed / Utilization -->
+            <div class="kpi-card accent-teal" id="kpiCompletedCard">
+              <div class="kpi-header">
+                <span class="kpi-title">Completed</span>
+                <span class="kpi-icon icon-teal" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </span>
+              </div>
+              <div class="kpi-value text-success" id="kpiCompletedDeliveries">0</div>
+              <div class="kpi-sub">
+                <span>Utilization: <strong id="kpiUtilizationRate">0%</strong></span>
+                <span class="sub-sep">•</span>
+                <span class="text-muted"><strong id="kpiCancelledDeliveries">0</strong> Cancelled</span>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ── Delivery Status Distribution Bar ──────────── -->
+        <div class="dist-bar-card">
+          <div class="dist-bar-header">
+            <div class="dist-bar-title">Delivery Status Distribution</div>
+            <div class="chart-legend" id="chartLegend">
+              <span class="legend-item"><span class="legend-color color-pending"></span>Pending</span>
+              <span class="legend-item"><span class="legend-color color-assigned"></span>Assigned</span>
+              <span class="legend-item"><span class="legend-color color-intransit"></span>In Transit</span>
+              <span class="legend-item"><span class="legend-color color-delivered"></span>Delivered</span>
+              <span class="legend-item"><span class="legend-color color-cancelled"></span>Cancelled</span>
+            </div>
+          </div>
+          <div class="status-progress-bar" id="statusBarContainer" title="Distribution of deliveries by status">
+            <div id="barPending"   class="bar-segment color-pending"   style="width:0%" title="Pending"></div>
+            <div id="barAssigned"  class="bar-segment color-assigned"  style="width:0%" title="Assigned"></div>
+            <div id="barInTransit" class="bar-segment color-intransit" style="width:0%" title="In Transit"></div>
+            <div id="barDelivered" class="bar-segment color-delivered" style="width:0%" title="Delivered"></div>
+            <div id="barCancelled" class="bar-segment color-cancelled" style="width:0%" title="Cancelled"></div>
+          </div>
+        </div>
+
+        <!-- ── View Toolbar (filters, context actions) ────── -->
+        <div class="view-toolbar">
+          <div class="view-toolbar-left">
+            <!-- Status filter (hidden for non-delivery views via JS) -->
+            <div class="filter-group" id="filterStatusGroup">
+              <label for="filterStatus">Status:</label>
+              <select id="filterStatus" class="select-input select-sm">
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="assigned">Assigned</option>
+                <option value="in_transit">In Transit</option>
+                <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+
+            <!-- Priority filter -->
+            <div class="filter-group" id="filterPriorityGroup">
+              <label for="filterPriority">Priority:</label>
+              <select id="filterPriority" class="select-input select-sm">
+                <option value="">All Priorities</option>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+
+            <button id="btnResetFilters" class="btn btn-ghost btn-sm" title="Clear all filters">
+              Reset Filters
+            </button>
           </div>
 
-          <div class="kpi-card">
-            <span class="kpi-title">Driver Utilization</span>
-            <div class="kpi-value text-success" id="anlDriverRate">0%</div>
-            <div class="progress-track">
-              <div class="progress-fill fill-success" id="anlDriverProgress" style="width: 0%"></div>
-            </div>
-            <div class="kpi-sub mt-2" id="anlDriverSub">0 of 0 drivers deployed</div>
-          </div>
-
-          <div class="kpi-card">
-            <span class="kpi-title">Fulfillment Success Rate</span>
-            <div class="kpi-value text-green" id="anlCompletionRate">0%</div>
-            <div class="progress-track">
-              <div class="progress-fill fill-green" id="anlCompletionProgress" style="width: 0%"></div>
-            </div>
-            <div class="kpi-sub mt-2" id="anlCompletionSub">0 completed, 0 cancelled</div>
+          <div class="view-toolbar-right">
+            <!-- Context action buttons (shown/hidden per view by JS) -->
+            <button id="btnCreateVehicleFromTab" class="btn btn-secondary btn-sm" style="display:none;"
+                    onclick="app.openNewVehicleModal()">
+              + Add Vehicle
+            </button>
+            <button id="btnCreateDriverFromTab" class="btn btn-secondary btn-sm" style="display:none;"
+                    onclick="app.openNewDriverModal()">
+              + Add Driver
+            </button>
           </div>
         </div>
 
-        <!-- Tables row: Vehicle types & Driver leaderboard -->
-        <div class="analytics-tables-grid">
+        <!-- ═══════════════════════════════════════════════
+             VIEW 1: DELIVERIES TABLE
+        ════════════════════════════════════════════════ -->
+        <section id="viewDeliveries" class="view-panel active" role="tabpanel">
           <div class="table-card">
-            <div class="table-header-bar">
-              <h4>Vehicle Category Breakdown</h4>
-            </div>
             <div class="table-responsive">
-              <table class="data-table" id="anlVehiclesTable">
+              <table class="data-table" id="deliveriesTable">
                 <thead>
                   <tr>
-                    <th>Type</th>
-                    <th>Count</th>
-                    <th>Active</th>
-                    <th>Available</th>
-                    <th>Utilization</th>
-                  </tr>
-                </thead>
-                <tbody id="anlVehiclesBody">
-                  <!-- Populated dynamically -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="table-card">
-            <div class="table-header-bar">
-              <h4>Driver Workload &amp; Delivery Log</h4>
-            </div>
-            <div class="table-responsive">
-              <table class="data-table" id="anlDriversTable">
-                <thead>
-                  <tr>
+                    <th onclick="app.sortDeliveries('id')" class="sortable">ID <span id="sort_del_id"></span></th>
+                    <th>Route</th>
+                    <th onclick="app.sortDeliveries('time')" class="sortable">Scheduled <span id="sort_del_time"></span></th>
+                    <th onclick="app.sortDeliveries('priority')" class="sortable">Priority <span id="sort_del_priority"></span></th>
+                    <th onclick="app.sortDeliveries('status')" class="sortable">Status <span id="sort_del_status"></span></th>
+                    <th>Vehicle</th>
                     <th>Driver</th>
-                    <th>Status</th>
-                    <th>Active</th>
-                    <th>Completed</th>
+                    <th class="text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody id="anlDriversBody">
-                  <!-- Populated dynamically -->
-                </tbody>
+                <tbody id="deliveriesTableBody"></tbody>
+              </table>
+            </div>
+            <div id="deliveriesEmptyState" class="empty-state" style="display:none;">
+              <div class="empty-icon">📦</div>
+              <h3>No Deliveries Found</h3>
+              <p class="text-muted">No delivery requests match the active filters.</p>
+              <button class="btn btn-primary btn-sm" onclick="app.openNewDeliveryModal()">Create Delivery Request</button>
+            </div>
+            <div class="pagination-bar" id="deliveriesPaginationBar">
+              <span class="pagination-info" id="delPaginationInfo">Showing 0–0 of 0</span>
+              <div class="pagination-buttons">
+                <button class="btn btn-ghost btn-sm" id="btnDelPrev" onclick="app.prevPage('del')">← Prev</button>
+                <span class="page-indicator" id="delPageIndicator">Page 1</span>
+                <button class="btn btn-ghost btn-sm" id="btnDelNext" onclick="app.nextPage('del')">Next →</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 2: STATUS BOARD (KANBAN)
+        ════════════════════════════════════════════════ -->
+        <section id="viewBoard" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="board-grid">
+            <div class="board-column">
+              <div class="board-column-header header-pending">
+                <span class="board-column-title">Pending</span>
+                <span class="board-badge" id="boardCountPending">0</span>
+              </div>
+              <div class="board-cards-container" id="boardColPending"></div>
+            </div>
+            <div class="board-column">
+              <div class="board-column-header header-assigned">
+                <span class="board-column-title">Assigned</span>
+                <span class="board-badge" id="boardCountAssigned">0</span>
+              </div>
+              <div class="board-cards-container" id="boardColAssigned"></div>
+            </div>
+            <div class="board-column">
+              <div class="board-column-header header-intransit">
+                <span class="board-column-title">In Transit</span>
+                <span class="board-badge" id="boardCountInTransit">0</span>
+              </div>
+              <div class="board-cards-container" id="boardColInTransit"></div>
+            </div>
+            <div class="board-column">
+              <div class="board-column-header header-delivered">
+                <span class="board-column-title">Delivered</span>
+                <span class="board-badge" id="boardCountDelivered">0</span>
+              </div>
+              <div class="board-cards-container" id="boardColDelivered"></div>
+            </div>
+            <div class="board-column">
+              <div class="board-column-header header-cancelled">
+                <span class="board-column-title">Cancelled</span>
+                <span class="board-badge" id="boardCountCancelled">0</span>
+              </div>
+              <div class="board-cards-container" id="boardColCancelled"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 3: VEHICLES TABLE
+        ════════════════════════════════════════════════ -->
+        <section id="viewVehicles" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="table-card">
+            <div class="table-header-bar">
+              <div>
+                <h3>Vehicle Fleet Directory</h3>
+                <p>Commercial vehicles, capacity ratings, and active assignment states</p>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="app.openNewVehicleModal()">+ Add Vehicle</button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="vehiclesTable">
+                <thead>
+                  <tr>
+                    <th>Vehicle ID</th>
+                    <th>Reg. Number</th>
+                    <th>Type</th>
+                    <th>Capacity (kg)</th>
+                    <th>Status</th>
+                    <th>Active Delivery</th>
+                    <th>Status Control</th>
+                    <th class="text-right">Manage</th>
+                  </tr>
+                </thead>
+                <tbody id="vehiclesTableBody"></tbody>
+              </table>
+            </div>
+            <div id="vehiclesEmptyState" class="empty-state" style="display:none;">
+              <div class="empty-icon">🚚</div>
+              <h3>No Vehicles Registered</h3>
+              <p class="text-muted">Register fleet vehicles or click "Seed Demo" above.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 4: DRIVERS TABLE
+        ════════════════════════════════════════════════ -->
+        <section id="viewDrivers" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="table-card">
+            <div class="table-header-bar">
+              <div>
+                <h3>Driver Personnel Roster</h3>
+                <p>Driver contacts, availability status, and active assignments</p>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="app.openNewDriverModal()">+ Add Driver</button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="driversTable">
+                <thead>
+                  <tr>
+                    <th>Driver ID</th>
+                    <th>Driver Name</th>
+                    <th>Phone Number</th>
+                    <th>Availability</th>
+                    <th>Active Delivery</th>
+                    <th>Availability Control</th>
+                    <th class="text-right">Manage</th>
+                  </tr>
+                </thead>
+                <tbody id="driversTableBody"></tbody>
+              </table>
+            </div>
+            <div id="driversEmptyState" class="empty-state" style="display:none;">
+              <div class="empty-icon">👤</div>
+              <h3>No Drivers Registered</h3>
+              <p class="text-muted">Register drivers or click "Seed Demo" to load initial personnel.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 5: PRIORITY DISPATCH QUEUE
+        ════════════════════════════════════════════════ -->
+        <section id="viewQueue" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="table-card">
+            <div class="table-header-bar">
+              <div>
+                <h3>Priority-Sorted Dispatch Queue</h3>
+                <p>Pending deliveries ranked by urgency (Urgent › High › Medium › Low) and scheduled time</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="app.loadPriorityQueue()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 4v6h-6"></path>
+                  <path d="M1 20v-6h6"></path>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                Refresh Queue
+              </button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="queueTable">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Delivery ID</th>
+                    <th>Priority</th>
+                    <th>Route</th>
+                    <th>Scheduled Time</th>
+                    <th>Cargo / Type Req.</th>
+                    <th class="text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="queueTableBody"></tbody>
+              </table>
+            </div>
+            <div id="queueEmptyState" class="empty-state" style="display:none;">
+              <div class="empty-icon">🎉</div>
+              <h3>Priority Queue Clear</h3>
+              <p class="text-muted">No pending deliveries waiting for allocation.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 6: PERFORMANCE & FLEET ANALYTICS
+        ════════════════════════════════════════════════ -->
+        <section id="viewAnalytics" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="analytics-layout">
+            <div class="analytics-cards-grid">
+              <div class="kpi-card">
+                <span class="kpi-title">Fleet Deployment Rate</span>
+                <div class="kpi-value text-primary" id="anlFleetRate">0%</div>
+                <div class="progress-track">
+                  <div class="progress-fill fill-primary" id="anlFleetProgress" style="width:0%"></div>
+                </div>
+                <div class="kpi-sub mt-2" id="anlFleetSub">0 of 0 vehicles active</div>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-title">Driver Utilization</span>
+                <div class="kpi-value text-success" id="anlDriverRate">0%</div>
+                <div class="progress-track">
+                  <div class="progress-fill fill-success" id="anlDriverProgress" style="width:0%"></div>
+                </div>
+                <div class="kpi-sub mt-2" id="anlDriverSub">0 of 0 drivers deployed</div>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-title">Fulfillment Success Rate</span>
+                <div class="kpi-value text-success" id="anlCompletionRate">0%</div>
+                <div class="progress-track">
+                  <div class="progress-fill fill-green" id="anlCompletionProgress" style="width:0%"></div>
+                </div>
+                <div class="kpi-sub mt-2" id="anlCompletionSub">0 completed, 0 cancelled</div>
+              </div>
+            </div>
+            <div class="analytics-tables-grid">
+              <div class="table-card">
+                <div class="table-header-bar"><h4>Vehicle Category Breakdown</h4></div>
+                <div class="table-responsive">
+                  <table class="data-table zebra" id="anlVehiclesTable">
+                    <thead>
+                      <tr>
+                        <th>Type</th><th>Count</th><th>Active</th><th>Available</th><th>Utilization</th>
+                      </tr>
+                    </thead>
+                    <tbody id="anlVehiclesBody"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="table-card">
+                <div class="table-header-bar"><h4>Driver Workload &amp; Delivery Log</h4></div>
+                <div class="table-responsive">
+                  <table class="data-table zebra" id="anlDriversTable">
+                    <thead>
+                      <tr>
+                        <th>Driver</th><th>Status</th><th>Active</th><th>Completed</th>
+                      </tr>
+                    </thead>
+                    <tbody id="anlDriversBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 7: AUDIT TRAIL
+        ════════════════════════════════════════════════ -->
+        <section id="viewAudit" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="table-card">
+            <div class="table-header-bar">
+              <div>
+                <h3>Operational Governance &amp; Audit Trail</h3>
+                <p>Chronological, tamper-evident log of assignments, status transitions, and asset modifications</p>
+              </div>
+              <div class="filter-group">
+                <label for="filterAuditEntity">Entity:</label>
+                <select id="filterAuditEntity" class="select-input select-sm" onchange="app.loadAuditLogs()">
+                  <option value="">All Entities</option>
+                  <option value="assignment">Assignments</option>
+                  <option value="delivery">Deliveries</option>
+                  <option value="vehicle">Vehicles</option>
+                  <option value="driver">Drivers</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="auditTable">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Entity</th>
+                    <th>Entity ID</th>
+                    <th>Action</th>
+                    <th>User / Role</th>
+                    <th>Audit Details</th>
+                  </tr>
+                </thead>
+                <tbody id="auditTableBody"></tbody>
               </table>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
+        </section>
 
-    <!-- VIEW 7: AUDIT TRAIL -->
-    <section id="viewAudit" class="view-panel" style="display: none;">
-      <div class="table-card">
-        <div class="table-header-bar">
-          <div>
-            <h3>Operational Governance &amp; Audit Trail</h3>
-            <p class="text-muted text-sm">Chronological, tamper-evident log of assignments, status transitions, and asset modifications</p>
-          </div>
-          <div class="filter-group">
-            <label for="filterAuditEntity">Entity:</label>
-            <select id="filterAuditEntity" class="select-input select-sm" onchange="app.loadAuditLogs()">
-              <option value="">All Entities</option>
-              <option value="assignment">Assignments</option>
-              <option value="delivery">Deliveries</option>
-              <option value="vehicle">Vehicles</option>
-              <option value="driver">Drivers</option>
-            </select>
-          </div>
-        </div>
-        <div class="table-responsive">
-          <table class="data-table" id="auditTable">
-            <thead>
-              <tr>
-                <th>Timestamp</th>
-                <th>Entity</th>
-                <th>Entity ID</th>
-                <th>Action</th>
-                <th>User / Role</th>
-                <th>Audit Details</th>
-              </tr>
-            </thead>
-            <tbody id="auditTableBody">
-              <!-- Populated dynamically -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+      </main><!-- end workspace -->
 
-  </main>
+      <!-- Footer -->
+      <footer class="app-footer">
+        <div class="footer-inner">
+          <span>FleetWise © 2026 — Vehicle &amp; Delivery Assignment System</span>
+          <span class="footer-links">
+            <span>SQLite WAL + Immediate Locking</span>
+            <span class="sub-sep">•</span>
+            <span>Partial Unique Index Guard</span>
+          </span>
+        </div>
+      </footer>
 
-  <!-- MODAL 1: ASSIGN VEHICLE & DRIVER -->
+    </div><!-- end main-content -->
+
+  </div><!-- end app-shell -->
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       MODAL 1: ASSIGN VEHICLE & DRIVER
+  ════════════════════════════════════════════════════════ -->
   <div id="modalAssign" class="modal-overlay" aria-hidden="true">
     <div class="modal-box" role="dialog" aria-labelledby="modalAssignTitle">
       <div class="modal-header">
@@ -643,14 +688,12 @@
           <h3 id="modalAssignTitle" class="modal-title">Assign Fleet Resources</h3>
           <p class="modal-subtitle">Allocate an eligible vehicle and driver to this pending delivery</p>
         </div>
-        <button class="modal-close" onclick="app.closeModal('modalAssign')">&times;</button>
+        <button class="modal-close" onclick="app.closeModal('modalAssign')" aria-label="Close">&times;</button>
       </div>
       <form id="formAssign">
-        <input type="hidden" id="assignDeliveryId" />
-        
-        <div class="delivery-preview-box" id="assignDeliveryPreview">
-          <!-- Populated dynamically -->
-        </div>
+        <input type="hidden" id="assignDeliveryId">
+
+        <div class="delivery-preview-box" id="assignDeliveryPreview"></div>
 
         <div class="suggestion-actions-row mb-3">
           <button type="button" id="btnSuggestPairing" class="btn btn-secondary btn-sm" onclick="app.suggestPairing()">
@@ -659,14 +702,12 @@
           <span class="text-xs text-muted">Evaluates vehicle capacity match and balances driver workload</span>
         </div>
 
-        <div id="assignSuggestionBox" class="alert alert-info" style="display: none;">
-          <!-- Populated dynamically with rationale and pairing -->
-        </div>
+        <div id="assignSuggestionBox" class="alert alert-info" style="display:none;"></div>
 
         <div class="form-group">
           <label for="assignVehicleSelect">Select Eligible Vehicle <span class="required">*</span></label>
           <select id="assignVehicleSelect" class="form-input" required>
-            <option value="">-- Choose an Available Vehicle --</option>
+            <option value="">— Choose an Available Vehicle —</option>
           </select>
           <small class="form-help">Only vehicles with status 'available' can be assigned.</small>
         </div>
@@ -674,12 +715,12 @@
         <div class="form-group">
           <label for="assignDriverSelect">Select Eligible Driver <span class="required">*</span></label>
           <select id="assignDriverSelect" class="form-input" required>
-            <option value="">-- Choose an Available Driver --</option>
+            <option value="">— Choose an Available Driver —</option>
           </select>
           <small class="form-help">Only drivers with status 'available' can be assigned.</small>
         </div>
 
-        <div id="assignConflictNotice" class="alert alert-danger" style="display: none;"></div>
+        <div id="assignConflictNotice" class="alert alert-danger" style="display:none;"></div>
 
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalAssign')">Cancel</button>
@@ -689,32 +730,32 @@
     </div>
   </div>
 
-  <!-- MODAL 2: CREATE / EDIT DELIVERY -->
+  <!-- ═══════════════════════════════════════════════════════
+       MODAL 2: CREATE / EDIT DELIVERY
+  ════════════════════════════════════════════════════════ -->
   <div id="modalNewDelivery" class="modal-overlay" aria-hidden="true">
     <div class="modal-box" role="dialog" aria-labelledby="modalNewDeliveryTitle">
       <div class="modal-header">
         <div>
           <h3 id="modalNewDeliveryTitle" class="modal-title">Create Delivery Request</h3>
-          <p class="modal-subtitle" id="modalNewDeliverySubtitle">Submit a new delivery destination for dispatch scheduling</p>
+          <p class="modal-subtitle" id="modalNewDeliverySubtitle">Submit a new delivery for dispatch scheduling</p>
         </div>
-        <button class="modal-close" onclick="app.closeModal('modalNewDelivery')">&times;</button>
+        <button class="modal-close" onclick="app.closeModal('modalNewDelivery')" aria-label="Close">&times;</button>
       </div>
       <form id="formNewDelivery">
-        <input type="hidden" id="deliveryEditId" />
+        <input type="hidden" id="deliveryEditId">
         <div class="form-group">
           <label for="deliveryPickup">Pickup Address <span class="required">*</span></label>
-          <input type="text" id="deliveryPickup" class="form-input" placeholder="e.g. Warehouse 14, 500 Pier Rd" required />
+          <input type="text" id="deliveryPickup" class="form-input" placeholder="e.g. Warehouse 14, 500 Pier Rd" required>
         </div>
-
         <div class="form-group">
           <label for="deliveryDropoff">Drop-off Address <span class="required">*</span></label>
-          <input type="text" id="deliveryDropoff" class="form-input" placeholder="e.g. 120 Market St, Suite 300" required />
+          <input type="text" id="deliveryDropoff" class="form-input" placeholder="e.g. 120 Market St, Suite 300" required>
         </div>
-
         <div class="form-row">
           <div class="form-group col-6">
             <label for="deliveryScheduledTime">Scheduled Time <span class="required">*</span></label>
-            <input type="datetime-local" id="deliveryScheduledTime" class="form-input" required />
+            <input type="datetime-local" id="deliveryScheduledTime" class="form-input" required>
           </div>
           <div class="form-group col-6">
             <label for="deliveryPriority">Priority Level</label>
@@ -726,25 +767,22 @@
             </select>
           </div>
         </div>
-
         <div class="form-row">
           <div class="form-group col-6">
             <label for="deliveryRequiredCapacity">Required Capacity (kg)</label>
-            <input type="number" id="deliveryRequiredCapacity" class="form-input" min="0" placeholder="e.g. 500" />
+            <input type="number" id="deliveryRequiredCapacity" class="form-input" min="0" placeholder="e.g. 500">
             <small class="form-help">Minimum cargo payload</small>
           </div>
           <div class="form-group col-6">
             <label for="deliveryRequiredType">Required Vehicle Type</label>
-            <input type="text" id="deliveryRequiredType" class="form-input" placeholder="e.g. Van, Refrigerated, Truck" />
+            <input type="text" id="deliveryRequiredType" class="form-input" placeholder="e.g. Van, Refrigerated, Truck">
             <small class="form-help">Leave empty for any type</small>
           </div>
         </div>
-
         <div class="form-group">
           <label for="deliveryNotes">Operational Notes</label>
           <textarea id="deliveryNotes" class="form-input" rows="2" placeholder="Special handling, dock instructions, or cargo details..."></textarea>
         </div>
-
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalNewDelivery')">Cancel</button>
           <button type="submit" id="btnSubmitDelivery" class="btn btn-primary">Save Delivery</button>
@@ -753,7 +791,9 @@
     </div>
   </div>
 
-  <!-- MODAL 3: CREATE / EDIT VEHICLE -->
+  <!-- ═══════════════════════════════════════════════════════
+       MODAL 3: CREATE / EDIT VEHICLE
+  ════════════════════════════════════════════════════════ -->
   <div id="modalNewVehicle" class="modal-overlay" aria-hidden="true">
     <div class="modal-box" role="dialog" aria-labelledby="modalNewVehicleTitle">
       <div class="modal-header">
@@ -761,25 +801,23 @@
           <h3 id="modalNewVehicleTitle" class="modal-title">Register Vehicle</h3>
           <p class="modal-subtitle" id="modalNewVehicleSubtitle">Add a commercial vehicle to the fleet</p>
         </div>
-        <button class="modal-close" onclick="app.closeModal('modalNewVehicle')">&times;</button>
+        <button class="modal-close" onclick="app.closeModal('modalNewVehicle')" aria-label="Close">&times;</button>
       </div>
       <form id="formNewVehicle">
-        <input type="hidden" id="vehicleEditId" />
+        <input type="hidden" id="vehicleEditId">
         <div class="form-group">
           <label for="vehicleReg">Registration Number <span class="required">*</span></label>
-          <input type="text" id="vehicleReg" class="form-input" placeholder="e.g. NYC-8492" required />
+          <input type="text" id="vehicleReg" class="form-input" placeholder="e.g. NYC-8492" required>
           <small class="form-help">Must be unique across the fleet.</small>
         </div>
-
         <div class="form-group">
           <label for="vehicleType">Vehicle Type <span class="required">*</span></label>
-          <input type="text" id="vehicleType" class="form-input" placeholder="e.g. Mercedes Sprinter, Box Truck, EV Van" required />
+          <input type="text" id="vehicleType" class="form-input" placeholder="e.g. Mercedes Sprinter, Box Truck, EV Van" required>
         </div>
-
         <div class="form-row">
           <div class="form-group col-6">
             <label for="vehicleCapacity">Capacity (kg) <span class="required">*</span></label>
-            <input type="number" id="vehicleCapacity" class="form-input" min="1" step="0.1" placeholder="e.g. 1500" required />
+            <input type="number" id="vehicleCapacity" class="form-input" min="1" step="0.1" placeholder="e.g. 1500" required>
           </div>
           <div class="form-group col-6">
             <label for="vehicleInitialStatus">Status</label>
@@ -790,7 +828,8 @@
             </select>
           </div>
         </div>
-
+        <!-- vehicleStatus is referenced by app.js for edit mode -->
+        <input type="hidden" id="vehicleStatus">
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalNewVehicle')">Cancel</button>
           <button type="submit" id="btnSubmitVehicle" class="btn btn-primary">Save Vehicle</button>
@@ -799,7 +838,9 @@
     </div>
   </div>
 
-  <!-- MODAL 4: CREATE / EDIT DRIVER -->
+  <!-- ═══════════════════════════════════════════════════════
+       MODAL 4: CREATE / EDIT DRIVER
+  ════════════════════════════════════════════════════════ -->
   <div id="modalNewDriver" class="modal-overlay" aria-hidden="true">
     <div class="modal-box" role="dialog" aria-labelledby="modalNewDriverTitle">
       <div class="modal-header">
@@ -807,21 +848,19 @@
           <h3 id="modalNewDriverTitle" class="modal-title">Register Driver</h3>
           <p class="modal-subtitle" id="modalNewDriverSubtitle">Add a licensed driver to the active dispatch team</p>
         </div>
-        <button class="modal-close" onclick="app.closeModal('modalNewDriver')">&times;</button>
+        <button class="modal-close" onclick="app.closeModal('modalNewDriver')" aria-label="Close">&times;</button>
       </div>
       <form id="formNewDriver">
-        <input type="hidden" id="driverEditId" />
+        <input type="hidden" id="driverEditId">
         <div class="form-group">
           <label for="driverName">Full Name <span class="required">*</span></label>
-          <input type="text" id="driverName" class="form-input" placeholder="e.g. Alexander Vance" required />
+          <input type="text" id="driverName" class="form-input" placeholder="e.g. Alexander Vance" required>
         </div>
-
         <div class="form-group">
           <label for="driverPhone">Phone Number <span class="required">*</span></label>
-          <input type="tel" id="driverPhone" class="form-input" placeholder="e.g. +1-555-0145" required />
-          <small class="form-help">Must be unique for SMS/dispatch dispatch contact.</small>
+          <input type="tel" id="driverPhone" class="form-input" placeholder="e.g. +1-555-0145" required>
+          <small class="form-help">Must be unique for SMS/dispatch contact.</small>
         </div>
-
         <div class="form-group">
           <label for="driverInitialStatus">Availability Status</label>
           <select id="driverInitialStatus" class="form-input">
@@ -829,7 +868,8 @@
             <option value="unavailable">Unavailable</option>
           </select>
         </div>
-
+        <!-- driverAvailability is referenced by app.js for edit mode -->
+        <input type="hidden" id="driverAvailability">
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalNewDriver')">Cancel</button>
           <button type="submit" id="btnSubmitDriver" class="btn btn-primary">Save Driver</button>
@@ -838,36 +878,24 @@
     </div>
   </div>
 
-  <!-- MODAL 5: DELIVERY AUDIT DETAILS & HISTORY -->
+  <!-- ═══════════════════════════════════════════════════════
+       MODAL 5: DELIVERY AUDIT DETAILS & HISTORY
+  ════════════════════════════════════════════════════════ -->
   <div id="modalDetails" class="modal-overlay" aria-hidden="true">
     <div class="modal-box modal-lg" role="dialog" aria-labelledby="modalDetailsTitle">
       <div class="modal-header">
         <div>
-          <h3 id="modalDetailsTitle" class="modal-title">Delivery Details & Audit Trail</h3>
+          <h3 id="modalDetailsTitle" class="modal-title">Delivery Details &amp; Audit Trail</h3>
           <p class="modal-subtitle" id="modalDetailsSubtitle">Audit log and resource allocation record</p>
         </div>
-        <button class="modal-close" onclick="app.closeModal('modalDetails')">&times;</button>
+        <button class="modal-close" onclick="app.closeModal('modalDetails')" aria-label="Close">&times;</button>
       </div>
-      <div id="modalDetailsContent" class="modal-body">
-        <!-- Dynamically rendered -->
-      </div>
+      <div id="modalDetailsContent" class="modal-body"></div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalDetails')">Close</button>
       </div>
     </div>
   </div>
-
-  <!-- Footer -->
-  <footer class="app-footer">
-    <div class="footer-inner">
-      <span>FleetWise © 2026 — Reliable Fleet & Delivery Assignment System</span>
-      <span class="footer-links">
-        <span>SQLite Immediate Locking</span>
-        <span class="sub-sep">•</span>
-        <span>Partial Unique Index Guard</span>
-      </span>
-    </div>
-  </footer>
 
   <script src="app.js"></script>
 </body>

@@ -40,7 +40,7 @@ const app = {
   },
 
   bindEvents() {
-    // Tab switching
+    // Sidebar nav items have onclick="app.switchView(...)" inline; also wire via JS for robustness
     document.getElementById('tabDeliveries').addEventListener('click', () => this.switchView('deliveries'));
     document.getElementById('tabBoard').addEventListener('click', () => this.switchView('board'));
     document.getElementById('tabVehicles').addEventListener('click', () => this.switchView('vehicles'));
@@ -49,10 +49,25 @@ const app = {
     document.getElementById('tabAnalytics').addEventListener('click', () => this.switchView('analytics'));
     document.getElementById('tabAudit').addEventListener('click', () => this.switchView('audit'));
 
-    // Header buttons
+    // Top bar buttons
     document.getElementById('btnRefreshAll').addEventListener('click', () => this.refreshAll());
     document.getElementById('btnSeedDemo').addEventListener('click', () => this.seedDemoData());
     document.getElementById('btnOpenNewDeliveryModal').addEventListener('click', () => this.openNewDeliveryModal());
+
+    // Mobile sidebar toggle
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const appSidebar    = document.getElementById('appSidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    if (sidebarToggle && appSidebar) {
+      sidebarToggle.addEventListener('click', () => {
+        appSidebar.classList.toggle('open');
+        sidebarOverlay.classList.toggle('open');
+      });
+      sidebarOverlay.addEventListener('click', () => {
+        appSidebar.classList.remove('open');
+        sidebarOverlay.classList.remove('open');
+      });
+    }
 
     // Search and filters
     const searchInput = document.getElementById('searchInput');
