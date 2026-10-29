@@ -415,11 +415,11 @@ const app = {
       const schedDate = new Date(d.scheduled_time).toLocaleString();
 
       const vehInfo = d.assignment ? 
-        `<strong>${d.assignment.vehicle.registration_number}</strong> <span class="text-muted text-sm">(${d.assignment.vehicle.type})</span>` :
+        `<strong>${this.escapeHtml(d.assignment.vehicle.registration_number)}</strong> <span class="text-muted text-sm">(${this.escapeHtml(d.assignment.vehicle.type)})</span>` :
         `<span class="text-muted">—</span>`;
 
       const drvInfo = d.assignment ?
-        `<strong>${d.assignment.driver.name}</strong> <span class="text-muted text-sm">${d.assignment.driver.phone}</span>` :
+        `<strong>${this.escapeHtml(d.assignment.driver.name)}</strong> <span class="text-muted text-sm">${this.escapeHtml(d.assignment.driver.phone)}</span>` :
         `<span class="text-muted">—</span>`;
 
       let actionButtons = '';
@@ -523,8 +523,8 @@ const app = {
         </div>
         ${d.assignment ? `
           <div class="board-card-meta">
-            <div>🚚 ${d.assignment.vehicle.registration_number}</div>
-            <div>👤 ${d.assignment.driver.name}</div>
+            <div>🚚 ${this.escapeHtml(d.assignment.vehicle.registration_number)}</div>
+            <div>👤 ${this.escapeHtml(d.assignment.driver.name)}</div>
           </div>
         ` : ''}
         <div class="board-card-actions">${cardActions}</div>
@@ -567,8 +567,8 @@ const app = {
     filtered.forEach(v => {
       const tr = document.createElement('tr');
       const activeDeliveryInfo = v.active_delivery ?
-        `<span class="badge badge-in_transit">Delivery ${v.active_delivery.delivery_id}</span>
-         <div class="text-sm text-muted">${v.active_delivery.pickup_address} ➔ ${v.active_delivery.dropoff_address}</div>` :
+        `<span class="badge badge-in_transit">Delivery ${this.escapeHtml(v.active_delivery.delivery_id)}</span>
+         <div class="text-sm text-muted">${this.escapeHtml(v.active_delivery.pickup_address)} ➔ ${this.escapeHtml(v.active_delivery.dropoff_address)}</div>` :
         `<span class="text-muted">None</span>`;
 
       const statusSelect = `
@@ -627,8 +627,8 @@ const app = {
     filtered.forEach(d => {
       const tr = document.createElement('tr');
       const activeDeliveryInfo = d.active_delivery ?
-        `<span class="badge badge-in_transit">Delivery ${d.active_delivery.delivery_id}</span>
-         <div class="text-sm text-muted">${d.active_delivery.pickup_address} ➔ ${d.active_delivery.dropoff_address}</div>` :
+        `<span class="badge badge-in_transit">Delivery ${this.escapeHtml(d.active_delivery.delivery_id)}</span>
+         <div class="text-sm text-muted">${this.escapeHtml(d.active_delivery.pickup_address)} ➔ ${this.escapeHtml(d.active_delivery.dropoff_address)}</div>` :
         `<span class="text-muted">None</span>`;
 
       const statusSelect = `
@@ -788,8 +788,8 @@ const app = {
               <tbody>
                 ${history.map(h => `
                   <tr>
-                    <td><strong>${h.vehicle_registration_number}</strong> (${h.vehicle_type})</td>
-                    <td><strong>${h.driver_name}</strong> (${h.driver_phone})</td>
+                    <td><strong>${this.escapeHtml(h.vehicle_registration_number)}</strong> (${this.escapeHtml(h.vehicle_type)})</td>
+                    <td><strong>${this.escapeHtml(h.driver_name)}</strong> (${this.escapeHtml(h.driver_phone)})</td>
                     <td>${new Date(h.assigned_at).toLocaleString()}</td>
                     <td>${h.released_at ? new Date(h.released_at).toLocaleString() : '—'}</td>
                     <td>${h.is_active ? '<span class="badge badge-assigned">Active</span>' : '<span class="badge badge-delivered">Released</span>'}</td>
@@ -801,7 +801,7 @@ const app = {
         }
       }
     } catch (err) {
-      historyHtml = `<p class="text-danger">Failed to load assignment logs: ${err.message}</p>`;
+      historyHtml = `<p class="text-danger">Failed to load assignment logs: ${this.escapeHtml(err.message)}</p>`;
     }
 
     const content = `
@@ -816,8 +816,8 @@ const app = {
         <div class="delivery-preview-box">
           <div style="font-weight: 700; color: var(--text-secondary); margin-bottom: 0.4rem;">Active Allocation</div>
           ${delivery.assignment ? `
-            <div><strong>Vehicle:</strong> ${delivery.assignment.vehicle.registration_number} (${delivery.assignment.vehicle.type})</div>
-            <div><strong>Driver:</strong> ${delivery.assignment.driver.name} (${delivery.assignment.driver.phone})</div>
+            <div><strong>Vehicle:</strong> ${this.escapeHtml(delivery.assignment.vehicle.registration_number)} (${this.escapeHtml(delivery.assignment.vehicle.type)})</div>
+            <div><strong>Driver:</strong> ${this.escapeHtml(delivery.assignment.driver.name)} (${this.escapeHtml(delivery.assignment.driver.phone)})</div>
             <div><strong>Assigned Since:</strong> ${new Date(delivery.assignment.assigned_at).toLocaleString()}</div>
           ` : '<p class="text-muted">No vehicle or driver currently assigned.</p>'}
         </div>

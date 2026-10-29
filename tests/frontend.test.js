@@ -54,5 +54,24 @@ test('Phase 5 - Frontend Static Serving & Demo Seeding', async (t) => {
     assert.ok(stats.deliveries.total >= 5);
     assert.ok(stats.deliveries.active >= 2);
   });
+
+  await t.test('All DOM element IDs referenced in app.js exist in index.html', async () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'public', 'index.html'), 'utf8');
+    const js = fs.readFileSync(path.join(__dirname, '..', 'src', 'public', 'app.js'), 'utf8');
+
+    const regex = /document\.getElementById\(['"]([^'"]+)['"]\)/g;
+    let match;
+    const missing = [];
+    while ((match = regex.exec(js)) !== null) {
+      const id = match[1];
+      if (!html.includes(`id="${id}"`)) {
+        missing.push(id);
+      }
+    }
+
+    assert.deepEqual(missing, [], `DOM IDs referenced in app.js missing in index.html: ${missing.join(', ')}`);
+  });
 });
 
