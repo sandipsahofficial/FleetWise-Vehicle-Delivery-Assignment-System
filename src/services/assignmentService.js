@@ -53,11 +53,16 @@ class AssignmentService {
       }
 
       const activeVehAssign = db.prepare(`
-        SELECT 1 FROM assignments WHERE vehicle_id = ? AND is_active = 1
+        SELECT a.id, a.delivery_id, d.status
+        FROM assignments a
+        JOIN deliveries d ON d.id = a.delivery_id
+        WHERE a.vehicle_id = ? AND a.is_active = 1 AND d.status IN ('assigned', 'in_transit')
+        LIMIT 1
       `).get(vehicleId);
+
       if (activeVehAssign) {
         throw new ConflictError(
-          `Vehicle '${vehicle.registration_number}' is already assigned to another active delivery`
+          `Vehicle '${vehicle.registration_number}' is already assigned to active delivery '${activeVehAssign.delivery_id}' (status: '${activeVehAssign.status}')`
         );
       }
 
@@ -76,11 +81,16 @@ class AssignmentService {
       }
 
       const activeDriverAssign = db.prepare(`
-        SELECT 1 FROM assignments WHERE driver_id = ? AND is_active = 1
+        SELECT a.id, a.delivery_id, d.status
+        FROM assignments a
+        JOIN deliveries d ON d.id = a.delivery_id
+        WHERE a.driver_id = ? AND a.is_active = 1 AND d.status IN ('assigned', 'in_transit')
+        LIMIT 1
       `).get(driverId);
+
       if (activeDriverAssign) {
         throw new ConflictError(
-          `Driver '${driver.name}' is already assigned to another active delivery`
+          `Driver '${driver.name}' is already assigned to active delivery '${activeDriverAssign.delivery_id}' (status: '${activeDriverAssign.status}')`
         );
       }
 
