@@ -221,3 +221,60 @@ curl -X PATCH http://localhost:3000/deliveries/DEL-XXXX/status \
   -d '{"status": "in_transit"}'
 ```
 
+---
+
+## 7. Clean-Start & Acceptance Demonstration Guide
+
+### Clean-Start Procedure
+To start FleetWise cleanly from scratch:
+```bash
+# 1. Stop any running server process (Ctrl+C)
+
+# 2. (Optional) Remove previous database file to start fresh
+rm -f data/fleetwise.db*
+
+# 3. Start the application
+npm start
+```
+The server will automatically initialize the database schema, foreign keys, and unique indexes on startup.
+
+### Running the Acceptance Demonstration Sequence
+FleetWise includes an automated acceptance demonstration script verifying the 7 required business acceptance steps:
+```bash
+node --test tests/acceptance_demonstration.test.js
+```
+
+#### What This Demonstrates:
+1. **Resource Creation**: Creates vehicle `DEMO-V100`, driver `Jordan Hayes`, and delivery `DEL-1`.
+2. **Successful Assignment**: Atomically assigns `DEMO-V100` and `Jordan Hayes` to `DEL-1`. Both resources transition to `assigned`.
+3. **Vehicle Conflict Prevention**: Rejects assigning `DEMO-V100` to a second delivery with HTTP `409 Conflict`.
+4. **Driver Conflict Prevention**: Rejects assigning `Jordan Hayes` to a second delivery with HTTP `409 Conflict`.
+5. **Delivery Completion**: Transitions `DEL-1` to `in_transit` and then `delivered`. Both resources safely return to `available`.
+6. **Resource Reuse**: Successfully re-assigns the freed vehicle and driver to the second delivery.
+7. **Database Consistency Verification**: Confirms database records, assignment counts, and audit logs remain strictly consistent.
+
+---
+
+## 8. Troubleshooting & FAQ
+
+### 1. Port 3000 Already in Use
+If port 3000 is occupied by another process, specify an alternative port via environment variable:
+```bash
+# On Linux/macOS
+PORT=3001 npm start
+
+# On Windows PowerShell
+$env:PORT="3001"; npm start
+```
+
+### 2. Database Locked (`SQLITE_BUSY`)
+FleetWise enables Write-Ahead Logging (`WAL` mode) and synchronous transactions (`BEGIN IMMEDIATE`) to prevent write collisions. If you manually access the SQLite file with external database viewers, ensure they open in read-only mode to prevent external file locking.
+
+### 3. Role-Based Access Denied (`403 Forbidden`)
+If you receive an HTTP `403 Forbidden` when attempting to register or delete vehicles/drivers, ensure the request includes the `fleet_manager` role header:
+```bash
+-H "X-User-Role: fleet_manager"
+```
+Dispatchers (`X-User-Role: dispatcher`) can assign deliveries and transition statuses, but cannot mutate fleet physical assets.
+
+
