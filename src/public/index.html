@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FleetWise — Vehicle & Delivery Assignment System</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">
+            <span class="brand-bold">FleetWise</span>
+            <span class="badge badge-system">Assignment Engine</span>
+          </div>
+          <div class="brand-sub">Vehicle & Delivery Dispatch Management</div>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <div id="systemHealthBadge" class="health-badge health-checking">
+          <span class="health-dot"></span>
+          <span id="healthText">Connecting...</span>
+        </div>
+        <button id="btnSeedDemo" class="btn btn-secondary btn-sm" title="Seed realistic test fleet, drivers and deliveries">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          </svg>
+          Seed Demo Data
+        </button>
+        <button id="btnRefreshAll" class="btn btn-secondary btn-sm" title="Refresh all data">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 4v6h-6"></path>
+            <path d="M1 20v-6h6"></path>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          Refresh
+        </button>
+        <div class="quick-actions">
+          <button id="btnOpenNewDeliveryModal" class="btn btn-primary btn-sm">
+            <span>+</span> New Delivery
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-layout">
+    
+    <!-- KPI Analytics Section -->
+    <section class="kpi-section" aria-label="Operational Metrics">
+      <div class="kpi-grid">
+        <!-- Card 1: Vehicles -->
+        <div class="kpi-card" id="kpiVehiclesCard">
+          <div class="kpi-header">
+            <span class="kpi-title">Fleet Vehicles</span>
+            <span class="kpi-icon icon-blue">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="1" y="3" width="15" height="13"></rect>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                <circle cx="18.5" cy="18.5" r="2.5"></circle>
+              </svg>
+            </span>
+          </div>
+          <div class="kpi-value" id="kpiTotalVehicles">0</div>
+          <div class="kpi-sub">
+            <span class="sub-item text-success"><strong id="kpiAvailableVehicles">0</strong> Available</span>
+            <span class="sub-sep">•</span>
+            <span class="sub-item text-primary"><strong id="kpiAssignedVehicles">0</strong> Assigned</span>
+            <span class="sub-sep">•</span>
+            <span class="sub-item text-warning"><strong id="kpiMaintenanceVehicles">0</strong> Maint.</span>
+          </div>
+        </div>
+
+        <!-- Card 2: Drivers -->
+        <div class="kpi-card" id="kpiDriversCard">
+          <div class="kpi-header">
+            <span class="kpi-title">Driver Roster</span>
+            <span class="kpi-icon icon-emerald">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </span>
+          </div>
+          <div class="kpi-value" id="kpiTotalDrivers">0</div>
+          <div class="kpi-sub">
+            <span class="sub-item text-success"><strong id="kpiAvailableDrivers">0</strong> Available</span>
+            <span class="sub-sep">•</span>
+            <span class="sub-item text-primary"><strong id="kpiAssignedDrivers">0</strong> Assigned</span>
+            <span class="sub-sep">•</span>
+            <span class="sub-item text-danger"><strong id="kpiUnavailableDrivers">0</strong> Unavail.</span>
+          </div>
+        </div>
+
+        <!-- Card 3: Pending Deliveries -->
+        <div class="kpi-card kpi-highlight-amber" id="kpiPendingCard">
+          <div class="kpi-header">
+            <span class="kpi-title">Pending Dispatch</span>
+            <span class="kpi-icon icon-amber">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </span>
+          </div>
+          <div class="kpi-value text-amber" id="kpiPendingDeliveries">0</div>
+          <div class="kpi-sub">Awaiting vehicle & driver allocation</div>
+        </div>
+
+        <!-- Card 4: Active Deliveries -->
+        <div class="kpi-card" id="kpiActiveCard">
+          <div class="kpi-header">
+            <span class="kpi-title">Active In-Progress</span>
+            <span class="kpi-icon icon-purple">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+            </span>
+          </div>
+          <div class="kpi-value text-purple" id="kpiActiveDeliveries">0</div>
+          <div class="kpi-sub">
+            <span class="sub-item"><strong id="kpiAssignedDel">0</strong> Assigned</span>
+            <span class="sub-sep">•</span>
+            <span class="sub-item"><strong id="kpiInTransitDel">0</strong> In Transit</span>
+          </div>
+        </div>
+
+        <!-- Card 5: Completed & Utilization -->
+        <div class="kpi-card" id="kpiCompletedCard">
+          <div class="kpi-header">
+            <span class="kpi-title">Completed Deliveries</span>
+            <span class="kpi-icon icon-green">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </span>
+          </div>
+          <div class="kpi-value text-success" id="kpiCompletedDeliveries">0</div>
+          <div class="kpi-sub">
+            <span>Fleet Utilization: <strong id="kpiUtilizationRate">0%</strong></span>
+            <span class="sub-sep">•</span>
+            <span class="text-muted"><strong id="kpiCancelledDeliveries">0</strong> Cancelled</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Accurate Operational Visual Breakdown Chart -->
+      <div class="chart-container">
+        <div class="chart-header">
+          <div class="chart-title">Delivery Status Distribution</div>
+          <div class="chart-legend" id="chartLegend">
+            <span class="legend-item"><span class="legend-color color-pending"></span> Pending</span>
+            <span class="legend-item"><span class="legend-color color-assigned"></span> Assigned</span>
+            <span class="legend-item"><span class="legend-color color-intransit"></span> In Transit</span>
+            <span class="legend-item"><span class="legend-color color-delivered"></span> Delivered</span>
+            <span class="legend-item"><span class="legend-color color-cancelled"></span> Cancelled</span>
+          </div>
+        </div>
+        <div class="status-progress-bar" id="statusBarContainer" title="Distribution of deliveries by status">
+          <div id="barPending" class="bar-segment color-pending" style="width: 0%"></div>
+          <div id="barAssigned" class="bar-segment color-assigned" style="width: 0%"></div>
+          <div id="barInTransit" class="bar-segment color-intransit" style="width: 0%"></div>
+          <div id="barDelivered" class="bar-segment color-delivered" style="width: 0%"></div>
+          <div id="barCancelled" class="bar-segment color-cancelled" style="width: 0%"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs & Toolbar -->
+    <div class="view-navigation">
+      <div class="tabs-list" role="tablist">
+        <button id="tabDeliveries" class="tab-button active" role="tab" aria-selected="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+          </svg>
+          Deliveries Dispatch
+          <span class="tab-count" id="countTabDeliveries">0</span>
+        </button>
+        <button id="tabVehicles" class="tab-button" role="tab" aria-selected="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+          </svg>
+          Vehicle Fleet
+          <span class="tab-count" id="countTabVehicles">0</span>
+        </button>
+        <button id="tabDrivers" class="tab-button" role="tab" aria-selected="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          Driver Roster
+          <span class="tab-count" id="countTabDrivers">0</span>
+        </button>
+      </div>
+
+      <div class="tab-context-actions">
+        <button id="btnCreateVehicleFromTab" class="btn btn-secondary btn-sm" style="display: none;">
+          + Add Vehicle
+        </button>
+        <button id="btnCreateDriverFromTab" class="btn btn-secondary btn-sm" style="display: none;">
+          + Add Driver
+        </button>
+      </div>
+    </div>
+
+    <!-- Filters & Search Toolbar -->
+    <div class="toolbar">
+      <div class="search-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="searchInput" placeholder="Search by ID, route, vehicle reg, or driver..." />
+      </div>
+
+      <div class="filter-controls">
+        <div class="filter-group" id="filterStatusGroup">
+          <label for="filterStatus">Status:</label>
+          <select id="filterStatus" class="select-input">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="assigned">Assigned</option>
+            <option value="in_transit">In Transit</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        <div class="filter-group" id="filterPriorityGroup">
+          <label for="filterPriority">Priority:</label>
+          <select id="filterPriority" class="select-input">
+            <option value="">All Priorities</option>
+            <option value="urgent">Urgent</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+
+        <button id="btnResetFilters" class="btn btn-ghost btn-sm" title="Clear all search and filters">
+          Reset Filters
+        </button>
+      </div>
+    </div>
+
+    <!-- VIEW 1: DELIVERIES TABLE -->
+    <section id="viewDeliveries" class="view-panel active">
+      <div class="table-card">
+        <div class="table-responsive">
+          <table class="data-table" id="deliveriesTable">
+            <thead>
+              <tr>
+                <th>Delivery ID</th>
+                <th>Route (Pickup & Drop-off)</th>
+                <th>Scheduled Time</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Assigned Vehicle</th>
+                <th>Assigned Driver</th>
+                <th class="text-right">Operational Actions</th>
+              </tr>
+            </thead>
+            <tbody id="deliveriesTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+        <div id="deliveriesEmptyState" class="empty-state" style="display: none;">
+          <div class="empty-icon">📦</div>
+          <h3>No Deliveries Found</h3>
+          <p class="text-muted">No delivery requests match the active search and filter criteria.</p>
+          <button class="btn btn-primary btn-sm" onclick="app.openNewDeliveryModal()">Create Delivery Request</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: VEHICLES TABLE -->
+    <section id="viewVehicles" class="view-panel" style="display: none;">
+      <div class="table-card">
+        <div class="table-header-bar">
+          <div>
+            <h3>Vehicle Fleet Directory</h3>
+            <p class="text-muted text-sm">Manage fleet assets, load capacities, and active assignment states</p>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="app.openNewVehicleModal()">+ Add New Vehicle</button>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="vehiclesTable">
+            <thead>
+              <tr>
+                <th>Vehicle ID</th>
+                <th>Reg. Number</th>
+                <th>Type</th>
+                <th>Capacity (kg)</th>
+                <th>Status</th>
+                <th>Active Delivery</th>
+                <th>Status Control</th>
+              </tr>
+            </thead>
+            <tbody id="vehiclesTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+        <div id="vehiclesEmptyState" class="empty-state" style="display: none;">
+          <div class="empty-icon">🚚</div>
+          <h3>No Vehicles Registered</h3>
+          <p class="text-muted">Add your first fleet vehicle or click "Seed Demo Data" above.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: DRIVERS TABLE -->
+    <section id="viewDrivers" class="view-panel" style="display: none;">
+      <div class="table-card">
+        <div class="table-header-bar">
+          <div>
+            <h3>Driver Personnel Roster</h3>
+            <p class="text-muted text-sm">Monitor driver availability, contact channels, and dispatch assignments</p>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="app.openNewDriverModal()">+ Add New Driver</button>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="driversTable">
+            <thead>
+              <tr>
+                <th>Driver ID</th>
+                <th>Driver Name</th>
+                <th>Phone Number</th>
+                <th>Availability</th>
+                <th>Active Delivery</th>
+                <th>Availability Control</th>
+              </tr>
+            </thead>
+            <tbody id="driversTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+        <div id="driversEmptyState" class="empty-state" style="display: none;">
+          <div class="empty-icon">👤</div>
+          <h3>No Drivers Registered</h3>
+          <p class="text-muted">Register drivers or click "Seed Demo Data" to load initial personnel.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL 1: ASSIGN VEHICLE & DRIVER -->
+  <div id="modalAssign" class="modal-overlay" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-labelledby="modalAssignTitle">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalAssignTitle" class="modal-title">Assign Fleet Resources</h3>
+          <p class="modal-subtitle">Allocate an eligible vehicle and driver to this pending delivery</p>
+        </div>
+        <button class="modal-close" onclick="app.closeModal('modalAssign')">&times;</button>
+      </div>
+      <form id="formAssign">
+        <input type="hidden" id="assignDeliveryId" />
+        
+        <div class="delivery-preview-box" id="assignDeliveryPreview">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div class="form-group">
+          <label for="assignVehicleSelect">Select Eligible Vehicle <span class="required">*</span></label>
+          <select id="assignVehicleSelect" class="form-input" required>
+            <option value="">-- Choose an Available Vehicle --</option>
+          </select>
+          <small class="form-help">Only vehicles with status 'available' can be assigned.</small>
+        </div>
+
+        <div class="form-group">
+          <label for="assignDriverSelect">Select Eligible Driver <span class="required">*</span></label>
+          <select id="assignDriverSelect" class="form-input" required>
+            <option value="">-- Choose an Available Driver --</option>
+          </select>
+          <small class="form-help">Only drivers with status 'available' can be assigned.</small>
+        </div>
+
+        <div id="assignConflictNotice" class="alert alert-danger" style="display: none;"></div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalAssign')">Cancel</button>
+          <button type="submit" id="btnSubmitAssign" class="btn btn-primary">Confirm Assignment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: NEW DELIVERY -->
+  <div id="modalNewDelivery" class="modal-overlay" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-labelledby="modalNewDeliveryTitle">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalNewDeliveryTitle" class="modal-title">Create Delivery Request</h3>
+          <p class="modal-subtitle">Submit a new delivery destination for dispatch scheduling</p>
+        </div>
+        <button class="modal-close" onclick="app.closeModal('modalNewDelivery')">&times;</button>
+      </div>
+      <form id="formNewDelivery">
+        <div class="form-group">
+          <label for="deliveryPickup">Pickup Address <span class="required">*</span></label>
+          <input type="text" id="deliveryPickup" class="form-input" placeholder="e.g. Warehouse 14, 500 Pier Rd" required />
+        </div>
+
+        <div class="form-group">
+          <label for="deliveryDropoff">Drop-off Address <span class="required">*</span></label>
+          <input type="text" id="deliveryDropoff" class="form-input" placeholder="e.g. 120 Market St, Suite 300" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col-6">
+            <label for="deliveryScheduledTime">Scheduled Time <span class="required">*</span></label>
+            <input type="datetime-local" id="deliveryScheduledTime" class="form-input" required />
+          </div>
+          <div class="form-group col-6">
+            <label for="deliveryPriority">Priority Level</label>
+            <select id="deliveryPriority" class="form-input">
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="deliveryNotes">Operational Notes</label>
+          <textarea id="deliveryNotes" class="form-input" rows="2" placeholder="Special handling, dock instructions, or cargo details..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalNewDelivery')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit Delivery</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 3: NEW VEHICLE -->
+  <div id="modalNewVehicle" class="modal-overlay" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-labelledby="modalNewVehicleTitle">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalNewVehicleTitle" class="modal-title">Register Vehicle</h3>
+          <p class="modal-subtitle">Add a new commercial vehicle to the FleetWise roster</p>
+        </div>
+        <button class="modal-close" onclick="app.closeModal('modalNewVehicle')">&times;</button>
+      </div>
+      <form id="formNewVehicle">
+        <div class="form-group">
+          <label for="vehicleReg">Registration Number <span class="required">*</span></label>
+          <input type="text" id="vehicleReg" class="form-input" placeholder="e.g. NYC-8492" required />
+          <small class="form-help">Must be unique across the fleet.</small>
+        </div>
+
+        <div class="form-group">
+          <label for="vehicleType">Vehicle Type <span class="required">*</span></label>
+          <input type="text" id="vehicleType" class="form-input" placeholder="e.g. Mercedes Sprinter, Box Truck, EV Van" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col-6">
+            <label for="vehicleCapacity">Capacity (kg) <span class="required">*</span></label>
+            <input type="number" id="vehicleCapacity" class="form-input" min="1" step="0.1" placeholder="e.g. 1500" required />
+          </div>
+          <div class="form-group col-6">
+            <label for="vehicleInitialStatus">Initial Status</label>
+            <select id="vehicleInitialStatus" class="form-input">
+              <option value="available">Available</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalNewVehicle')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Vehicle</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 4: NEW DRIVER -->
+  <div id="modalNewDriver" class="modal-overlay" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-labelledby="modalNewDriverTitle">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalNewDriverTitle" class="modal-title">Register Driver</h3>
+          <p class="modal-subtitle">Add a licensed driver to the active dispatch team</p>
+        </div>
+        <button class="modal-close" onclick="app.closeModal('modalNewDriver')">&times;</button>
+      </div>
+      <form id="formNewDriver">
+        <div class="form-group">
+          <label for="driverName">Full Name <span class="required">*</span></label>
+          <input type="text" id="driverName" class="form-input" placeholder="e.g. Alexander Vance" required />
+        </div>
+
+        <div class="form-group">
+          <label for="driverPhone">Phone Number <span class="required">*</span></label>
+          <input type="tel" id="driverPhone" class="form-input" placeholder="e.g. +1-555-0145" required />
+          <small class="form-help">Must be unique for SMS/dispatch dispatch contact.</small>
+        </div>
+
+        <div class="form-group">
+          <label for="driverInitialStatus">Initial Availability</label>
+          <select id="driverInitialStatus" class="form-input">
+            <option value="available">Available</option>
+            <option value="unavailable">Unavailable</option>
+          </select>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalNewDriver')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Driver</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 5: DELIVERY AUDIT DETAILS & HISTORY -->
+  <div id="modalDetails" class="modal-overlay" aria-hidden="true">
+    <div class="modal-box modal-lg" role="dialog" aria-labelledby="modalDetailsTitle">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalDetailsTitle" class="modal-title">Delivery Details & Audit Trail</h3>
+          <p class="modal-subtitle" id="modalDetailsSubtitle">Audit log and resource allocation record</p>
+        </div>
+        <button class="modal-close" onclick="app.closeModal('modalDetails')">&times;</button>
+      </div>
+      <div id="modalDetailsContent" class="modal-body">
+        <!-- Dynamically rendered -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalDetails')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-inner">
+      <span>FleetWise © 2026 — Reliable Fleet & Delivery Assignment System</span>
+      <span class="footer-links">
+        <span>SQLite ACID Enforced</span>
+        <span class="sub-sep">•</span>
+        <span>Zero Double-Booking Guarantee</span>
+      </span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

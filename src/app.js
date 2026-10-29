@@ -5,6 +5,7 @@ const healthRoutes = require('./routes/healthRoutes');
 const vehicleRoutes = require('./routes/vehicleRoutes');
 const driverRoutes = require('./routes/driverRoutes');
 const deliveryRoutes = require('./routes/deliveryRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use('/', healthRoutes);
 app.use('/', vehicleRoutes);
 app.use('/', driverRoutes);
 app.use('/', deliveryRoutes);
+app.use('/api', dashboardRoutes);
 
 // 404 handler for unknown API routes
 app.use('/api', (req, res) => {
