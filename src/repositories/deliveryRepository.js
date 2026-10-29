@@ -4,8 +4,8 @@ class DeliveryRepository {
   create(delivery) {
     const db = getDb();
     const stmt = db.prepare(`
-      INSERT INTO deliveries (id, pickup_address, dropoff_address, scheduled_time, priority, status, notes, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'))
+      INSERT INTO deliveries (id, pickup_address, dropoff_address, scheduled_time, priority, status, notes, required_capacity, required_vehicle_type, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'))
     `);
     stmt.run(
       delivery.id,
@@ -14,7 +14,9 @@ class DeliveryRepository {
       delivery.scheduled_time,
       delivery.priority || 'medium',
       delivery.status || 'pending',
-      delivery.notes || null
+      delivery.notes || null,
+      Number(delivery.required_capacity || 0),
+      delivery.required_vehicle_type || null
     );
     return this.findById(delivery.id);
   }
@@ -30,6 +32,8 @@ class DeliveryRepository {
         d.priority,
         d.status,
         d.notes,
+        d.required_capacity,
+        d.required_vehicle_type,
         d.created_at,
         d.updated_at,
         a.id AS assignment_id,
@@ -66,6 +70,8 @@ class DeliveryRepository {
         d.priority,
         d.status,
         d.notes,
+        d.required_capacity,
+        d.required_vehicle_type,
         d.created_at,
         d.updated_at,
         a.id AS assignment_id,
@@ -158,7 +164,7 @@ class DeliveryRepository {
     const db = getDb();
     const stmt = db.prepare(`
       UPDATE deliveries
-      SET pickup_address = ?, dropoff_address = ?, scheduled_time = ?, priority = ?, notes = ?, updated_at = DATETIME('now')
+      SET pickup_address = ?, dropoff_address = ?, scheduled_time = ?, priority = ?, notes = ?, required_capacity = ?, required_vehicle_type = ?, updated_at = DATETIME('now')
       WHERE id = ?
     `);
     stmt.run(
@@ -167,6 +173,8 @@ class DeliveryRepository {
       updates.scheduled_time,
       updates.priority,
       updates.notes || null,
+      Number(updates.required_capacity || 0),
+      updates.required_vehicle_type || null,
       id
     );
     return this.findById(id);
@@ -179,6 +187,50 @@ class DeliveryRepository {
     return info.changes > 0;
   }
 
+  getPriorityQueue() {
+    const db = getDb();
+    const query = `
+      SELECT 
+        d.id,
+        d.pickup_address,
+        d.dropoff_address,
+        d.scheduled_time,
+        d.priority,
+        d.status,
+        d.notes,
+        d.required_capacity,
+        d.required_vehicle_type,
+        d.created_at,
+        d.updated_at,
+        NULL AS assignment_id,
+        NULL AS assigned_at,
+        NULL AS released_at,
+        NULL AS vehicle_id,
+        NULL AS vehicle_registration_number,
+        NULL AS vehicle_type,
+        NULL AS vehicle_capacity,
+        NULL AS vehicle_status,
+        NULL AS driver_id,
+        NULL AS driver_name,
+        NULL AS driver_phone,
+        NULL AS driver_availability_status
+      FROM deliveries d
+      WHERE d.status = 'pending'
+      ORDER BY 
+        CASE d.priority
+          WHEN 'urgent' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END ASC,
+        d.scheduled_time ASC,
+        d.created_at ASC
+    `;
+    const rows = db.prepare(query).all();
+    return rows.map(r => this._formatDelivery(r));
+  }
+
   _formatDelivery(row) {
     const delivery = {
       id: row.id,
@@ -188,6 +240,8 @@ class DeliveryRepository {
       priority: row.priority,
       status: row.status,
       notes: row.notes,
+      required_capacity: Number(row.required_capacity || 0),
+      required_vehicle_type: row.required_vehicle_type || null,
       created_at: row.created_at,
       updated_at: row.updated_at,
       assignment: null

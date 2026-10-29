@@ -121,7 +121,7 @@ The server will start listening at:
 Open `http://localhost:3000` in any web browser to access the application.
 
 ### Running Automated Test Suite
-FleetWise includes 43 automated unit and integration tests across 7 test suites:
+FleetWise includes 83 automated unit, integration, concurrency, and governance tests across 13 test suites with zero external testing dependencies:
 ```bash
 npm test
 ```
@@ -134,31 +134,57 @@ npm test
 |---|---|---|---|
 | `GET` | `/health` | Service health, uptime, and DB connectivity | 200, 503 |
 | `GET` | `/api/dashboard/stats` | Aggregated operational KPI metrics & chart data | 200 |
+| `GET` | `/api/analytics/performance` | Detailed fleet utilization, driver workload & completion rates | 200 |
+| `GET` | `/api/audit-logs` | Comprehensive tamper-evident audit history | 200 |
 | `POST` | `/api/seed` | Seeds realistic demo fleet, drivers, and deliveries | 200 |
 | `GET` | `/vehicles` | List all vehicles with active delivery details | 200 |
-| `POST` | `/vehicles` | Register a new fleet vehicle | 201, 400, 409 |
+| `POST` | `/vehicles` | Register a new fleet vehicle (Requires `fleet_manager`) | 201, 400, 403, 409 |
 | `GET` | `/vehicles/:id` | Retrieve single vehicle details | 200, 404 |
-| `PUT` | `/vehicles/:id` | Update vehicle details (safeguards active assets) | 200, 400, 409 |
-| `PATCH`| `/vehicles/:id/status` | Update vehicle status (enforcing maintenance lock) | 200, 400, 409 |
-| `DELETE`| `/vehicles/:id` | Safe deletion of vehicle (rejects active/history) | 200, 404, 409 |
+| `PUT` | `/vehicles/:id` | Update vehicle details (Requires `fleet_manager`) | 200, 400, 403, 409 |
+| `PATCH`| `/vehicles/:id/status` | Update vehicle status (Requires `fleet_manager`, enforces lockout) | 200, 400, 403, 409 |
+| `DELETE`| `/vehicles/:id` | Safe deletion of vehicle (Requires `fleet_manager`, rejects active) | 200, 403, 404, 409 |
 | `GET` | `/drivers` | List all drivers with active delivery details | 200 |
-| `POST` | `/drivers` | Register a new driver (enforces unique ID & phone) | 201, 400, 409 |
+| `POST` | `/drivers` | Register a new driver (Requires `fleet_manager`) | 201, 400, 403, 409 |
 | `GET` | `/drivers/:id` | Retrieve single driver details | 200, 404 |
-| `PUT` | `/drivers/:id` | Update driver details (safeguards active personnel) | 200, 400, 409 |
-| `PATCH`| `/drivers/:id/status` | Update driver availability status | 200, 400, 409 |
-| `DELETE`| `/drivers/:id` | Safe deletion of driver (rejects active/history) | 200, 404, 409 |
+| `PUT` | `/drivers/:id` | Update driver details (Requires `fleet_manager`) | 200, 400, 403, 409 |
+| `PATCH`| `/drivers/:id/status` | Update driver availability status (Requires `fleet_manager`) | 200, 400, 403, 409 |
+| `DELETE`| `/drivers/:id` | Safe deletion of driver (Requires `fleet_manager`, rejects active) | 200, 403, 404, 409 |
 | `GET` | `/deliveries` | List deliveries (supports `search`, `status`, `priority`) | 200 |
-| `POST` | `/deliveries` | Create a pending delivery request | 201, 400 |
+| `GET` | `/deliveries/queue` | Priority-based delivery queue (sorted by priority & schedule) | 200 |
+| `POST` | `/deliveries` | Create a pending delivery request (with capacity/type reqs) | 201, 400 |
 | `GET` | `/deliveries/:id` | Retrieve delivery details with assigned resources | 200, 404 |
-| `PUT` | `/deliveries/:id` | Update pending delivery details (rejects active) | 200, 400, 409 |
-| `GET` | `/deliveries/:id/assignments` | Retrieve historical assignment audit logs | 200, 404 |
+| `GET` | `/deliveries/:id/suggestions`| Suggest optimal vehicle/driver pairing with capacity & workload rationale | 200, 404 |
+| `PUT` | `/deliveries/:id` | Update pending delivery details (rejects active/terminal) | 200, 400, 409 |
+| `GET` | `/deliveries/:id/assignments` | Retrieve historical assignment audit logs for delivery | 200, 404 |
 | `DELETE`| `/deliveries/:id` | Safe deletion of delivery (rejects active/history) | 200, 404, 409 |
 | `POST` | `/deliveries/:id/assign` | Atomically assign vehicle & driver to delivery | 200, 400, 404, 409 |
 | `PATCH`| `/deliveries/:id/status` | Perform validated lifecycle transition | 200, 400, 404, 409 |
 
 ---
 
-## 5. API cURL Examples
+## 5. Phase 6 Advanced Operational Enhancements
+
+1. **Capacity & Vehicle Type Matching**:
+   - Deliveries specify optional `required_capacity` (kg) and `required_vehicle_type`.
+   - The authoritative assignment engine enforces strict matching: allocating a vehicle with insufficient capacity or mismatched type triggers an HTTP `409 Conflict`.
+2. **Priority-Based Dispatch Queue**:
+   - `GET /deliveries/queue` returns pending deliveries ordered by priority (`urgent` > `high` > `medium` > `low`), scheduled delivery time, and creation timestamp.
+3. **Smart Resource Suggestion Engine**:
+   - `GET /deliveries/:id/suggestions` identifies available vehicles that meet capacity and type specifications, ranks by best capacity fit, and pairs with drivers having balanced workloads.
+   - Suggestions must be confirmed and executed through the authoritative assignment engine.
+4. **Audit Trail**:
+   - Every creation, assignment, status transition, and asset modification writes an immutable record to the `audit_logs` table.
+   - Queryable via `GET /api/audit-logs?entity_type=...`.
+5. **Fleet Utilization & Delivery Analytics**:
+   - `GET /api/analytics/performance` calculates live fleet deployment rate, driver utilization rate, fulfillment completion rate, vehicle category breakdown, and driver trip leaderboards.
+6. **Role-Based Access Control (RBAC)**:
+   - Evaluates `X-User-Role` (`fleet_manager` vs `dispatcher`).
+   - `fleet_manager` has full administrative authority to register, update, and delete vehicles and drivers.
+   - `dispatcher` can assign resources and manage delivery lifecycles, but asset modifications return `403 Forbidden`.
+
+---
+
+## 6. API cURL Examples
 
 ### 1. Create a Vehicle
 ```bash

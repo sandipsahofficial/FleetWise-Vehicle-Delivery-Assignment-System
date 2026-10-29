@@ -31,11 +31,34 @@ router.get('/deliveries', (req, res, next) => {
   }
 });
 
+// GET /deliveries/queue - priority-based queue of pending deliveries
+router.get('/deliveries/queue', (req, res, next) => {
+  try {
+    const queue = deliveryService.getPriorityQueue();
+    res.status(200).json({
+      count: queue.length,
+      queue
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /deliveries/:id - get single delivery
 router.get('/deliveries/:id', (req, res, next) => {
   try {
     const delivery = deliveryService.getDeliveryById(req.params.id);
     res.status(200).json(delivery);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /deliveries/:id/suggestions - get AI resource matching suggestions
+router.get('/deliveries/:id/suggestions', (req, res, next) => {
+  try {
+    const suggestions = assignmentService.suggestResources(req.params.id);
+    res.status(200).json(suggestions);
   } catch (err) {
     next(err);
   }

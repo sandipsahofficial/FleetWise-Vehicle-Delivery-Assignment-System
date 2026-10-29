@@ -35,6 +35,13 @@
       </div>
 
       <div class="header-controls">
+        <div class="role-selector-container">
+          <label for="userRoleSelect" class="role-label">Role:</label>
+          <select id="userRoleSelect" class="select-input select-sm" onchange="app.setUserRole(this.value)" title="Switch active role for access control">
+            <option value="fleet_manager" selected>Fleet Manager (Admin)</option>
+            <option value="dispatcher">Dispatcher (Operations)</option>
+          </select>
+        </div>
         <div id="systemHealthBadge" class="health-badge health-checking">
           <span class="health-dot"></span>
           <span id="healthText">Connecting...</span>
@@ -221,6 +228,31 @@
           </svg>
           Driver Roster
           <span class="tab-count" id="countTabDrivers">0</span>
+        </button>
+        <button id="tabQueue" class="tab-button" role="tab" aria-selected="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          Priority Queue
+          <span class="tab-count badge-urgent" id="countTabQueue">0</span>
+        </button>
+        <button id="tabAnalytics" class="tab-button" role="tab" aria-selected="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          Fleet Analytics
+        </button>
+        <button id="tabAudit" class="tab-button" role="tab" aria-selected="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          Audit Trail
         </button>
       </div>
 
@@ -438,6 +470,169 @@
       </div>
     </section>
 
+    <!-- VIEW 5: PRIORITY DISPATCH QUEUE -->
+    <section id="viewQueue" class="view-panel" style="display: none;">
+      <div class="table-card">
+        <div class="table-header-bar">
+          <div>
+            <h3>Priority-Sorted Dispatch Queue</h3>
+            <p class="text-muted text-sm">Pending deliveries ranked strictly by urgency (Urgent &gt; High &gt; Medium &gt; Low) and scheduled time</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="app.loadPriorityQueue()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6"></path>
+              <path d="M1 20v-6h6"></path>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            Refresh Queue
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="queueTable">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Delivery ID</th>
+                <th>Priority</th>
+                <th>Route</th>
+                <th>Scheduled Time</th>
+                <th>Cargo / Type Req.</th>
+                <th class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="queueTableBody">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+        <div id="queueEmptyState" class="empty-state" style="display: none;">
+          <div class="empty-icon">🎉</div>
+          <h3>Priority Queue Clear</h3>
+          <p class="text-muted">No pending deliveries waiting for allocation. All requests have been assigned or completed.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 6: PERFORMANCE & FLEET ANALYTICS -->
+    <section id="viewAnalytics" class="view-panel" style="display: none;">
+      <div class="analytics-layout">
+        <!-- Top metrics row -->
+        <div class="analytics-cards-grid">
+          <div class="kpi-card">
+            <span class="kpi-title">Fleet Deployment Rate</span>
+            <div class="kpi-value text-primary" id="anlFleetRate">0%</div>
+            <div class="progress-track">
+              <div class="progress-fill fill-primary" id="anlFleetProgress" style="width: 0%"></div>
+            </div>
+            <div class="kpi-sub mt-2" id="anlFleetSub">0 of 0 vehicles active</div>
+          </div>
+
+          <div class="kpi-card">
+            <span class="kpi-title">Driver Utilization</span>
+            <div class="kpi-value text-success" id="anlDriverRate">0%</div>
+            <div class="progress-track">
+              <div class="progress-fill fill-success" id="anlDriverProgress" style="width: 0%"></div>
+            </div>
+            <div class="kpi-sub mt-2" id="anlDriverSub">0 of 0 drivers deployed</div>
+          </div>
+
+          <div class="kpi-card">
+            <span class="kpi-title">Fulfillment Success Rate</span>
+            <div class="kpi-value text-green" id="anlCompletionRate">0%</div>
+            <div class="progress-track">
+              <div class="progress-fill fill-green" id="anlCompletionProgress" style="width: 0%"></div>
+            </div>
+            <div class="kpi-sub mt-2" id="anlCompletionSub">0 completed, 0 cancelled</div>
+          </div>
+        </div>
+
+        <!-- Tables row: Vehicle types & Driver leaderboard -->
+        <div class="analytics-tables-grid">
+          <div class="table-card">
+            <div class="table-header-bar">
+              <h4>Vehicle Category Breakdown</h4>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="anlVehiclesTable">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Count</th>
+                    <th>Active</th>
+                    <th>Available</th>
+                    <th>Utilization</th>
+                  </tr>
+                </thead>
+                <tbody id="anlVehiclesBody">
+                  <!-- Populated dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header-bar">
+              <h4>Driver Workload &amp; Delivery Log</h4>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="anlDriversTable">
+                <thead>
+                  <tr>
+                    <th>Driver</th>
+                    <th>Status</th>
+                    <th>Active</th>
+                    <th>Completed</th>
+                  </tr>
+                </thead>
+                <tbody id="anlDriversBody">
+                  <!-- Populated dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 7: AUDIT TRAIL -->
+    <section id="viewAudit" class="view-panel" style="display: none;">
+      <div class="table-card">
+        <div class="table-header-bar">
+          <div>
+            <h3>Operational Governance &amp; Audit Trail</h3>
+            <p class="text-muted text-sm">Chronological, tamper-evident log of assignments, status transitions, and asset modifications</p>
+          </div>
+          <div class="filter-group">
+            <label for="filterAuditEntity">Entity:</label>
+            <select id="filterAuditEntity" class="select-input select-sm" onchange="app.loadAuditLogs()">
+              <option value="">All Entities</option>
+              <option value="assignment">Assignments</option>
+              <option value="delivery">Deliveries</option>
+              <option value="vehicle">Vehicles</option>
+              <option value="driver">Drivers</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="auditTable">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Entity</th>
+                <th>Entity ID</th>
+                <th>Action</th>
+                <th>User / Role</th>
+                <th>Audit Details</th>
+              </tr>
+            </thead>
+            <tbody id="auditTableBody">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- MODAL 1: ASSIGN VEHICLE & DRIVER -->
@@ -455,6 +650,17 @@
         
         <div class="delivery-preview-box" id="assignDeliveryPreview">
           <!-- Populated dynamically -->
+        </div>
+
+        <div class="suggestion-actions-row mb-3">
+          <button type="button" id="btnSuggestPairing" class="btn btn-secondary btn-sm" onclick="app.suggestPairing()">
+            ✨ Suggest Optimal Pairing
+          </button>
+          <span class="text-xs text-muted">Evaluates vehicle capacity match and balances driver workload</span>
+        </div>
+
+        <div id="assignSuggestionBox" class="alert alert-info" style="display: none;">
+          <!-- Populated dynamically with rationale and pairing -->
         </div>
 
         <div class="form-group">
@@ -518,6 +724,19 @@
               <option value="urgent">Urgent</option>
               <option value="low">Low</option>
             </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col-6">
+            <label for="deliveryRequiredCapacity">Required Capacity (kg)</label>
+            <input type="number" id="deliveryRequiredCapacity" class="form-input" min="0" placeholder="e.g. 500" />
+            <small class="form-help">Minimum cargo payload</small>
+          </div>
+          <div class="form-group col-6">
+            <label for="deliveryRequiredType">Required Vehicle Type</label>
+            <input type="text" id="deliveryRequiredType" class="form-input" placeholder="e.g. Van, Refrigerated, Truck" />
+            <small class="form-help">Leave empty for any type</small>
           </div>
         </div>
 

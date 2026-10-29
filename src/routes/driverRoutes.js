@@ -1,10 +1,11 @@
 const express = require('express');
 const driverService = require('../services/driverService');
+const { requireRole } = require('../middleware/rbac');
 
 const router = express.Router();
 
-// POST /drivers - create driver
-router.post('/drivers', (req, res, next) => {
+// POST /drivers - create driver (requires fleet_manager)
+router.post('/drivers', requireRole(['fleet_manager']), (req, res, next) => {
   try {
     const driver = driverService.createDriver(req.body);
     res.status(201).json(driver);
@@ -37,8 +38,8 @@ router.get('/drivers/:id', (req, res, next) => {
   }
 });
 
-// PATCH /drivers/:id/status - update availability status
-router.patch('/drivers/:id/status', (req, res, next) => {
+// PATCH /drivers/:id/status - update availability status (requires fleet_manager)
+router.patch('/drivers/:id/status', requireRole(['fleet_manager']), (req, res, next) => {
   try {
     const { status } = req.body;
     const driver = driverService.updateDriverStatus(req.params.id, status);
@@ -48,8 +49,8 @@ router.patch('/drivers/:id/status', (req, res, next) => {
   }
 });
 
-// PUT /drivers/:id - update driver
-router.put('/drivers/:id', (req, res, next) => {
+// PUT /drivers/:id - update driver (requires fleet_manager)
+router.put('/drivers/:id', requireRole(['fleet_manager']), (req, res, next) => {
   try {
     const driver = driverService.updateDriver(req.params.id, req.body);
     res.status(200).json(driver);
@@ -58,8 +59,8 @@ router.put('/drivers/:id', (req, res, next) => {
   }
 });
 
-// DELETE /drivers/:id - delete driver (if safe)
-router.delete('/drivers/:id', (req, res, next) => {
+// DELETE /drivers/:id - delete driver (if safe, requires fleet_manager)
+router.delete('/drivers/:id', requireRole(['fleet_manager']), (req, res, next) => {
   try {
     driverService.deleteDriver(req.params.id);
     res.status(200).json({

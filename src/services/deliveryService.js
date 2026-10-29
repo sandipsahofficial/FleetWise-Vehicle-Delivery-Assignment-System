@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const { getDb } = require('../db/database');
 const deliveryRepository = require('../repositories/deliveryRepository');
 const assignmentRepository = require('../repositories/assignmentRepository');
+const auditService = require('./auditService');
 const { BadRequestError, NotFoundError, ConflictError } = require('../utils/errors');
 
 const VALID_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
@@ -17,8 +18,8 @@ const ALLOWED_TRANSITIONS = {
 };
 
 class DeliveryService {
-  createDelivery(data) {
-    const { id, pickup_address, dropoff_address, scheduled_time, priority, notes } = data || {};
+  createDelivery(data, performedBy = 'dispatcher') {
+    const { id, pickup_address, dropoff_address, scheduled_time, priority, notes, required_capacity, required_vehicle_type } = data || {};
 
     if (!pickup_address || typeof pickup_address !== 'string' || !pickup_address.trim()) {
       throw new BadRequestError('Pickup address is required');
@@ -35,6 +36,11 @@ class DeliveryService {
       throw new BadRequestError(`Invalid priority. Allowed: ${VALID_PRIORITIES.join(', ')}`);
     }
 
+    const numReqCap = required_capacity !== undefined ? Number(required_capacity) : 0;
+    if (isNaN(numReqCap) || numReqCap < 0) {
+      throw new BadRequestError('Required capacity must be a non-negative number');
+    }
+
     const deliveryId = id && id.trim() ? id.trim() : `DEL-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
     const newDelivery = {
@@ -44,10 +50,22 @@ class DeliveryService {
       scheduled_time: scheduled_time.trim(),
       priority: priorityVal,
       status: 'pending',
-      notes: notes ? notes.trim() : null
+      notes: notes ? notes.trim() : null,
+      required_capacity: numReqCap,
+      required_vehicle_type: required_vehicle_type ? required_vehicle_type.trim() : null
     };
 
-    return deliveryRepository.create(newDelivery);
+    const created = deliveryRepository.create(newDelivery);
+    auditService.log({
+      entity_type: 'delivery',
+      entity_id: deliveryId,
+      action: 'created',
+      old_state: null,
+      new_state: { status: 'pending', priority: priorityVal },
+      performed_by: performedBy,
+      details: `Created delivery request for ${created.pickup_address} -> ${created.dropoff_address}`
+    });
+    return created;
   }
 
   getDeliveryById(id) {
@@ -69,7 +87,7 @@ class DeliveryService {
     return deliveryRepository.findAll(filters);
   }
 
-  updateDeliveryStatus(id, newStatus) {
+  updateDeliveryStatus(id, newStatus, performedBy = 'dispatcher') {
     if (!newStatus || typeof newStatus !== 'string') {
       throw new BadRequestError('New status is required');
     }
@@ -173,6 +191,17 @@ class DeliveryService {
       `).run(targetStatus, id);
 
       db.exec('COMMIT');
+
+      auditService.log({
+        entity_type: 'delivery',
+        entity_id: id,
+        action: 'status_changed',
+        old_state: { status: currentStatus },
+        new_state: { status: targetStatus },
+        performed_by: performedBy,
+        details: `Transitioned status from ${currentStatus} to ${targetStatus}`
+      });
+
       return deliveryRepository.findById(id);
     } catch (err) {
       try {
@@ -184,7 +213,7 @@ class DeliveryService {
     }
   }
 
-  updateDelivery(id, data) {
+  updateDelivery(id, data, performedBy = 'dispatcher') {
     const existing = this.getDeliveryById(id);
 
     // Business rule: Reject unsafe edits to active deliveries in progress or terminal states
@@ -199,7 +228,7 @@ class DeliveryService {
       );
     }
 
-    const { pickup_address, dropoff_address, scheduled_time, priority, notes } = data || {};
+    const { pickup_address, dropoff_address, scheduled_time, priority, notes, required_capacity, required_vehicle_type } = data || {};
 
     const cleanPickup = pickup_address !== undefined ? pickup_address.trim() : existing.pickup_address;
     if (!cleanPickup) throw new BadRequestError('Pickup address cannot be empty');
@@ -215,15 +244,35 @@ class DeliveryService {
       throw new BadRequestError(`Invalid priority. Allowed: ${VALID_PRIORITIES.join(', ')}`);
     }
 
+    const numReqCap = required_capacity !== undefined ? Number(required_capacity) : existing.required_capacity;
+    if (isNaN(numReqCap) || numReqCap < 0) {
+      throw new BadRequestError('Required capacity must be a non-negative number');
+    }
+
+    const cleanReqType = required_vehicle_type !== undefined ? (required_vehicle_type ? required_vehicle_type.trim() : null) : existing.required_vehicle_type;
     const cleanNotes = notes !== undefined ? (notes ? notes.trim() : null) : existing.notes;
 
-    return deliveryRepository.update(id, {
+    const updated = deliveryRepository.update(id, {
       pickup_address: cleanPickup,
       dropoff_address: cleanDropoff,
       scheduled_time: cleanTime,
       priority: cleanPriority,
-      notes: cleanNotes
+      notes: cleanNotes,
+      required_capacity: numReqCap,
+      required_vehicle_type: cleanReqType
     });
+
+    auditService.log({
+      entity_type: 'delivery',
+      entity_id: id,
+      action: 'updated',
+      old_state: { pickup: existing.pickup_address, dropoff: existing.dropoff_address },
+      new_state: { pickup: cleanPickup, dropoff: cleanDropoff },
+      performed_by: performedBy,
+      details: 'Updated delivery route and requirement specifications'
+    });
+
+    return updated;
   }
 
   deleteDelivery(id) {
@@ -238,6 +287,10 @@ class DeliveryService {
     }
 
     return deliveryRepository.delete(id);
+  }
+
+  getPriorityQueue() {
+    return deliveryRepository.getPriorityQueue();
   }
 }
 

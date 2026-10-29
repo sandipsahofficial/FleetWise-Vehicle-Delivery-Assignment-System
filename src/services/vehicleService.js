@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const vehicleRepository = require('../repositories/vehicleRepository');
+const auditService = require('./auditService');
 const { BadRequestError, NotFoundError, ConflictError } = require('../utils/errors');
 
 const VALID_STATUSES = ['available', 'assigned', 'maintenance', 'inactive'];
@@ -43,7 +44,17 @@ class VehicleService {
       status: vehicleStatus
     };
 
-    return vehicleRepository.create(newVehicle);
+    const created = vehicleRepository.create(newVehicle);
+    auditService.log({
+      entity_type: 'vehicle',
+      entity_id: created.id,
+      action: 'created',
+      old_state: null,
+      new_state: { registration_number: created.registration_number, status: created.status },
+      performed_by: 'fleet_manager',
+      details: `Created vehicle ${created.registration_number} (${created.type}, ${created.capacity}kg)`
+    });
+    return created;
   }
 
   getVehicleById(id) {
@@ -87,7 +98,17 @@ class VehicleService {
       throw new BadRequestError('Cannot manually set vehicle status to assigned without an active delivery assignment');
     }
 
-    return vehicleRepository.updateStatus(id, targetStatus);
+    const updated = vehicleRepository.updateStatus(id, targetStatus);
+    auditService.log({
+      entity_type: 'vehicle',
+      entity_id: id,
+      action: 'status_changed',
+      old_state: { status: vehicle.status },
+      new_state: { status: targetStatus },
+      performed_by: 'fleet_manager',
+      details: `Vehicle status transitioned from ${vehicle.status} to ${targetStatus}`
+    });
+    return updated;
   }
 
   updateVehicle(id, data) {
@@ -138,16 +159,28 @@ class VehicleService {
       }
     }
 
-    return vehicleRepository.update(id, {
+    const updated = vehicleRepository.update(id, {
       registration_number: cleanReg,
       type: cleanType,
       capacity: numCapacity,
       status: targetStatus
     });
+
+    auditService.log({
+      entity_type: 'vehicle',
+      entity_id: id,
+      action: 'updated',
+      old_state: { status: existing.status, capacity: existing.capacity },
+      new_state: { status: targetStatus, capacity: numCapacity },
+      performed_by: 'fleet_manager',
+      details: `Updated vehicle ${cleanReg}`
+    });
+
+    return updated;
   }
 
   deleteVehicle(id) {
-    this.getVehicleById(id); // Throws NotFoundError if missing
+    const vehicle = this.getVehicleById(id); // Throws NotFoundError if missing
 
     if (vehicleRepository.hasActiveAssignment(id)) {
       throw new ConflictError(`Cannot delete vehicle '${id}' while an active assignment exists`);
@@ -157,7 +190,17 @@ class VehicleService {
       throw new ConflictError(`Cannot delete vehicle '${id}' with existing assignment records. Deletion would compromise historical dispatch logs.`);
     }
 
-    return vehicleRepository.delete(id);
+    const deleted = vehicleRepository.delete(id);
+    auditService.log({
+      entity_type: 'vehicle',
+      entity_id: id,
+      action: 'deleted',
+      old_state: { registration_number: vehicle.registration_number },
+      new_state: null,
+      performed_by: 'fleet_manager',
+      details: `Deleted vehicle ${vehicle.registration_number}`
+    });
+    return deleted;
   }
 }
 

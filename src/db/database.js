@@ -54,6 +54,8 @@ function initDatabase(customPath) {
       priority TEXT NOT NULL CHECK(priority IN ('low', 'medium', 'high', 'urgent')) DEFAULT 'medium',
       status TEXT NOT NULL CHECK(status IN ('pending', 'assigned', 'in_transit', 'delivered', 'cancelled')) DEFAULT 'pending',
       notes TEXT,
+      required_capacity REAL DEFAULT 0,
+      required_vehicle_type TEXT,
       created_at TEXT NOT NULL DEFAULT (DATETIME('now')),
       updated_at TEXT NOT NULL DEFAULT (DATETIME('now'))
     );
@@ -68,6 +70,21 @@ function initDatabase(customPath) {
       is_active INTEGER NOT NULL DEFAULT 1 CHECK(is_active IN (0, 1))
     );
 
+    -- Audit Log Table
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      old_state TEXT,
+      new_state TEXT,
+      performed_by TEXT DEFAULT 'system',
+      timestamp TEXT NOT NULL DEFAULT (DATETIME('now')),
+      details TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity_type, entity_id);
+
     -- Partial unique indexes: prevents double-booking at the physical database schema level!
     CREATE UNIQUE INDEX IF NOT EXISTS idx_active_assign_vehicle 
       ON assignments(vehicle_id) WHERE is_active = 1;
@@ -81,6 +98,19 @@ function initDatabase(customPath) {
     -- Performance index on delivery status
     CREATE INDEX IF NOT EXISTS idx_deliveries_status ON deliveries(status);
   `);
+
+  // Safe migration for required_capacity and required_vehicle_type on existing tables
+  try {
+    const colInfo = db.prepare("PRAGMA table_info(deliveries)").all();
+    const hasCap = colInfo.some(c => c.name === 'required_capacity');
+    if (!hasCap) {
+      db.exec("ALTER TABLE deliveries ADD COLUMN required_capacity REAL DEFAULT 0;");
+    }
+    const hasType = colInfo.some(c => c.name === 'required_vehicle_type');
+    if (!hasType) {
+      db.exec("ALTER TABLE deliveries ADD COLUMN required_vehicle_type TEXT;");
+    }
+  } catch (_) {}
 
   return db;
 }

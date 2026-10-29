@@ -2,10 +2,13 @@ const crypto = require('node:crypto');
 const { getDb } = require('../db/database');
 const deliveryRepository = require('../repositories/deliveryRepository');
 const assignmentRepository = require('../repositories/assignmentRepository');
+const vehicleRepository = require('../repositories/vehicleRepository');
+const driverRepository = require('../repositories/driverRepository');
+const auditService = require('./auditService');
 const { BadRequestError, NotFoundError, ConflictError } = require('../utils/errors');
 
 class AssignmentService {
-  assignDelivery(deliveryId, vehicleId, driverId) {
+  assignDelivery(deliveryId, vehicleId, driverId, performedBy = 'dispatcher') {
     if (!deliveryId) throw new BadRequestError('Delivery ID is required');
     if (!vehicleId) throw new BadRequestError('Vehicle ID is required');
     if (!driverId) throw new BadRequestError('Driver ID is required');
@@ -66,6 +69,24 @@ class AssignmentService {
         );
       }
 
+      // Enhancement 1: Validate vehicle capacity requirement
+      const reqCapacity = Number(delivery.required_capacity || 0);
+      if (reqCapacity > 0 && vehicle.capacity < reqCapacity) {
+        throw new ConflictError(
+          `Vehicle '${vehicle.registration_number}' capacity (${vehicle.capacity} kg) is insufficient for delivery requirement (${reqCapacity} kg)`
+        );
+      }
+
+      // Enhancement 1: Validate vehicle type requirement
+      if (delivery.required_vehicle_type && delivery.required_vehicle_type.trim()) {
+        const requiredType = delivery.required_vehicle_type.trim().toLowerCase();
+        if (!vehicle.type.toLowerCase().includes(requiredType)) {
+          throw new ConflictError(
+            `Vehicle '${vehicle.registration_number}' type '${vehicle.type}' does not match required delivery vehicle type '${delivery.required_vehicle_type}'`
+          );
+        }
+      }
+
       // 3. Verify driver eligibility
       const driverStmt = db.prepare('SELECT * FROM drivers WHERE id = ?');
       const driver = driverStmt.get(driverId);
@@ -116,6 +137,17 @@ class AssignmentService {
 
       db.exec('COMMIT');
 
+      // Audit log
+      auditService.log({
+        entity_type: 'assignment',
+        entity_id: assignmentId,
+        action: 'assigned',
+        old_state: null,
+        new_state: { delivery_id: deliveryId, vehicle_id: vehicleId, driver_id: driverId },
+        performed_by: performedBy,
+        details: `Assigned vehicle ${vehicle.registration_number} (${vehicle.type}) and driver ${driver.name} to delivery ${deliveryId}`
+      });
+
       // Return updated delivery object
       return deliveryRepository.findById(deliveryId);
     } catch (err) {
@@ -134,6 +166,94 @@ class AssignmentService {
 
       throw err;
     }
+  }
+
+  suggestResources(deliveryId) {
+    if (!deliveryId) throw new BadRequestError('Delivery ID is required');
+    const delivery = deliveryRepository.findById(deliveryId);
+    if (!delivery) throw new NotFoundError(`Delivery with ID '${deliveryId}' not found`);
+
+    const db = getDb();
+
+    // 1. Find eligible vehicles
+    // Must be available, no active assignment, capacity >= reqCapacity, and match type if specified
+    const reqCap = Number(delivery.required_capacity || 0);
+    const reqType = delivery.required_vehicle_type ? delivery.required_vehicle_type.trim().toLowerCase() : null;
+
+    const availableVehicles = db.prepare(`
+      SELECT v.*
+      FROM vehicles v
+      WHERE v.status = 'available'
+        AND NOT EXISTS (
+          SELECT 1 FROM assignments a WHERE a.vehicle_id = v.id AND a.is_active = 1
+        )
+    `).all();
+
+    const candidateVehicles = availableVehicles
+      .filter(v => {
+        if (reqCap > 0 && Number(v.capacity) < reqCap) return false;
+        if (reqType && !v.type.toLowerCase().includes(reqType)) return false;
+        return true;
+      })
+      .map(v => {
+        const capacityDelta = Number(v.capacity) - reqCap;
+        return {
+          id: v.id,
+          registration_number: v.registration_number,
+          type: v.type,
+          capacity: Number(v.capacity),
+          capacity_delta: capacityDelta,
+          score: capacityDelta, // Lowest delta = closest capacity match
+          criteria: `Capacity ${v.capacity}kg matches requirement (${reqCap}kg). Best-fit delta: +${capacityDelta}kg`
+        };
+      })
+      .sort((a, b) => a.score - b.score);
+
+    // 2. Find eligible drivers with workload balancing
+    const candidateDrivers = db.prepare(`
+      SELECT 
+        d.id,
+        d.name,
+        d.phone,
+        d.availability_status,
+        COUNT(CASE WHEN del.status = 'delivered' THEN 1 END) AS completed_deliveries
+      FROM drivers d
+      LEFT JOIN assignments a ON a.driver_id = d.id
+      LEFT JOIN deliveries del ON del.id = a.delivery_id
+      WHERE d.availability_status = 'available'
+        AND NOT EXISTS (
+          SELECT 1 FROM assignments act WHERE act.driver_id = d.id AND act.is_active = 1
+        )
+      GROUP BY d.id
+      ORDER BY completed_deliveries ASC, d.created_at ASC
+    `).all().map(d => ({
+      id: d.id,
+      name: d.name,
+      phone: d.phone,
+      completed_deliveries: Number(d.completed_deliveries || 0),
+      criteria: `Available with balanced workload (${d.completed_deliveries} prior deliveries)`
+    }));
+
+    const topVehicle = candidateVehicles[0] || null;
+    const topDriver = candidateDrivers[0] || null;
+
+    return {
+      delivery_id: deliveryId,
+      delivery_requirements: {
+        required_capacity: reqCap,
+        required_vehicle_type: delivery.required_vehicle_type || 'any',
+        priority: delivery.priority
+      },
+      recommended_pairing: (topVehicle && topDriver) ? {
+        vehicle_id: topVehicle.id,
+        vehicle_registration: topVehicle.registration_number,
+        driver_id: topDriver.id,
+        driver_name: topDriver.name,
+        rationale: `Optimal capacity fit (${topVehicle.capacity}kg) and balanced driver workload (${topDriver.completed_deliveries} trips).`
+      } : null,
+      eligible_vehicles: candidateVehicles,
+      eligible_drivers: candidateDrivers
+    };
   }
 
   getAssignmentHistory(deliveryId) {

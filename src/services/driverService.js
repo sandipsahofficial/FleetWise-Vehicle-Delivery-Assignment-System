@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const driverRepository = require('../repositories/driverRepository');
+const auditService = require('./auditService');
 const { BadRequestError, NotFoundError, ConflictError } = require('../utils/errors');
 
 const VALID_STATUSES = ['available', 'assigned', 'unavailable'];
@@ -43,7 +44,17 @@ class DriverService {
       availability_status: status
     };
 
-    return driverRepository.create(newDriver);
+    const created = driverRepository.create(newDriver);
+    auditService.log({
+      entity_type: 'driver',
+      entity_id: created.id,
+      action: 'created',
+      old_state: null,
+      new_state: { name: created.name, availability_status: created.availability_status },
+      performed_by: 'fleet_manager',
+      details: `Created driver ${created.name} (${created.phone})`
+    });
+    return created;
   }
 
   getDriverById(id) {
@@ -87,7 +98,17 @@ class DriverService {
       throw new BadRequestError('Cannot manually set driver status to assigned without an active delivery assignment');
     }
 
-    return driverRepository.updateStatus(id, targetStatus);
+    const updated = driverRepository.updateStatus(id, targetStatus);
+    auditService.log({
+      entity_type: 'driver',
+      entity_id: id,
+      action: 'status_changed',
+      old_state: { availability_status: driver.availability_status },
+      new_state: { availability_status: targetStatus },
+      performed_by: 'fleet_manager',
+      details: `Driver availability status transitioned from ${driver.availability_status} to ${targetStatus}`
+    });
+    return updated;
   }
 
   updateDriver(id, data) {
@@ -133,15 +154,27 @@ class DriverService {
       }
     }
 
-    return driverRepository.update(id, {
+    const updated = driverRepository.update(id, {
       name: cleanName,
       phone: cleanPhone,
       availability_status: targetStatus
     });
+
+    auditService.log({
+      entity_type: 'driver',
+      entity_id: id,
+      action: 'updated',
+      old_state: { name: existing.name, availability_status: existing.availability_status },
+      new_state: { name: cleanName, availability_status: targetStatus },
+      performed_by: 'fleet_manager',
+      details: `Updated driver ${cleanName}`
+    });
+
+    return updated;
   }
 
   deleteDriver(id) {
-    this.getDriverById(id); // Throws NotFoundError if missing
+    const driver = this.getDriverById(id); // Throws NotFoundError if missing
 
     if (driverRepository.hasActiveAssignment(id)) {
       throw new ConflictError(`Cannot delete driver '${id}' while an active assignment exists`);
@@ -151,7 +184,17 @@ class DriverService {
       throw new ConflictError(`Cannot delete driver '${id}' with existing assignment records. Deletion would compromise historical dispatch logs.`);
     }
 
-    return driverRepository.delete(id);
+    const deleted = driverRepository.delete(id);
+    auditService.log({
+      entity_type: 'driver',
+      entity_id: id,
+      action: 'deleted',
+      old_state: { name: driver.name, phone: driver.phone },
+      new_state: null,
+      performed_by: 'fleet_manager',
+      details: `Deleted driver ${driver.name}`
+    });
+    return deleted;
   }
 }
 

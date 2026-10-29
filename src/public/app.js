@@ -5,9 +5,13 @@
 
 const state = {
   currentView: 'deliveries',
+  userRole: 'fleet_manager',
   deliveries: [],
   vehicles: [],
   drivers: [],
+  queue: [],
+  analytics: null,
+  auditLogs: [],
   stats: null,
   filters: {
     search: '',
@@ -41,6 +45,9 @@ const app = {
     document.getElementById('tabBoard').addEventListener('click', () => this.switchView('board'));
     document.getElementById('tabVehicles').addEventListener('click', () => this.switchView('vehicles'));
     document.getElementById('tabDrivers').addEventListener('click', () => this.switchView('drivers'));
+    document.getElementById('tabQueue').addEventListener('click', () => this.switchView('queue'));
+    document.getElementById('tabAnalytics').addEventListener('click', () => this.switchView('analytics'));
+    document.getElementById('tabAudit').addEventListener('click', () => this.switchView('audit'));
 
     // Header buttons
     document.getElementById('btnRefreshAll').addEventListener('click', () => this.refreshAll());
@@ -179,6 +186,8 @@ const app = {
     document.getElementById('countTabDeliveries').textContent = stats.deliveries.total;
     document.getElementById('countTabVehicles').textContent = stats.vehicles.total;
     document.getElementById('countTabDrivers').textContent = stats.drivers.total;
+    const qBadge = document.getElementById('countTabQueue');
+    if (qBadge) qBadge.textContent = stats.deliveries.pending;
 
     // Render Status Progress Distribution Bar
     const total = stats.deliveries.total;
@@ -231,7 +240,7 @@ const app = {
 
   async fetchDrivers() {
     try {
-      const res = await fetch('/drivers');
+      const res = await this.apiFetch('/drivers');
       if (!res.ok) throw new Error('Failed to fetch drivers');
       state.drivers = await res.json();
     } catch (err) {
@@ -239,7 +248,24 @@ const app = {
     }
   },
 
+  apiFetch(url, options = {}) {
+    const headers = {
+      'X-User-Role': state.userRole,
+      ...(options.headers || {})
+    };
+    if (options.body && typeof options.body === 'string' && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+    return fetch(url, { ...options, headers });
+  },
+
+  setUserRole(role) {
+    state.userRole = role;
+    this.showToast(`Active role set to: ${role === 'fleet_manager' ? 'Fleet Manager (Full Admin)' : 'Dispatcher (Logistics)'}`, 'info');
+  },
+
   switchView(viewName) {
+    
     state.currentView = viewName;
 
     // Tabs
@@ -247,12 +273,18 @@ const app = {
     document.getElementById('tabBoard').classList.toggle('active', viewName === 'board');
     document.getElementById('tabVehicles').classList.toggle('active', viewName === 'vehicles');
     document.getElementById('tabDrivers').classList.toggle('active', viewName === 'drivers');
+    document.getElementById('tabQueue').classList.toggle('active', viewName === 'queue');
+    document.getElementById('tabAnalytics').classList.toggle('active', viewName === 'analytics');
+    document.getElementById('tabAudit').classList.toggle('active', viewName === 'audit');
 
     // Panels
     document.getElementById('viewDeliveries').style.display = viewName === 'deliveries' ? 'block' : 'none';
     document.getElementById('viewBoard').style.display = viewName === 'board' ? 'block' : 'none';
     document.getElementById('viewVehicles').style.display = viewName === 'vehicles' ? 'block' : 'none';
     document.getElementById('viewDrivers').style.display = viewName === 'drivers' ? 'block' : 'none';
+    document.getElementById('viewQueue').style.display = viewName === 'queue' ? 'block' : 'none';
+    document.getElementById('viewAnalytics').style.display = viewName === 'analytics' ? 'block' : 'none';
+    document.getElementById('viewAudit').style.display = viewName === 'audit' ? 'block' : 'none';
 
     // Context action buttons
     document.getElementById('btnCreateVehicleFromTab').style.display = viewName === 'vehicles' ? 'inline-flex' : 'none';
@@ -273,6 +305,12 @@ const app = {
       this.renderVehiclesTable();
     } else if (state.currentView === 'drivers') {
       this.renderDriversTable();
+    } else if (state.currentView === 'queue') {
+      this.loadPriorityQueue();
+    } else if (state.currentView === 'analytics') {
+      this.loadPerformanceAnalytics();
+    } else if (state.currentView === 'audit') {
+      this.loadAuditLogs();
     }
   },
 
@@ -625,6 +663,8 @@ const app = {
 
     document.getElementById('assignDeliveryId').value = deliveryId;
     document.getElementById('assignConflictNotice').style.display = 'none';
+    const sugBox = document.getElementById('assignSuggestionBox');
+    if (sugBox) sugBox.style.display = 'none';
 
     document.getElementById('assignDeliveryPreview').innerHTML = `
       <div style="font-weight: 700; margin-bottom: 0.25rem;">Delivery: <span class="id-code">${delivery.id}</span> [${delivery.priority.toUpperCase()}]</div>
@@ -797,6 +837,8 @@ const app = {
     document.getElementById('modalNewDeliveryTitle').textContent = 'Create Delivery Request';
     document.getElementById('btnSubmitDelivery').textContent = 'Submit Delivery';
     document.getElementById('formNewDelivery').reset();
+    document.getElementById('deliveryRequiredCapacity').value = '';
+    document.getElementById('deliveryRequiredType').value = '';
     this.setDefaultScheduledTime();
     this.openModal('modalNewDelivery');
   },
@@ -811,6 +853,8 @@ const app = {
     document.getElementById('deliveryDropoff').value = d.dropoff_address;
     document.getElementById('deliveryScheduledTime').value = new Date(d.scheduled_time).toISOString().slice(0, 16);
     document.getElementById('deliveryPriority').value = d.priority;
+    document.getElementById('deliveryRequiredCapacity').value = d.required_capacity || '';
+    document.getElementById('deliveryRequiredType').value = d.required_vehicle_type || '';
     document.getElementById('deliveryNotes').value = d.notes || '';
     this.openModal('modalNewDelivery');
   },
@@ -818,11 +862,16 @@ const app = {
   async handleDeliveryFormSubmit(e) {
     e.preventDefault();
     const editId = document.getElementById('deliveryEditId').value;
+    const reqCapVal = document.getElementById('deliveryRequiredCapacity').value;
+    const reqTypeVal = document.getElementById('deliveryRequiredType').value;
+
     const payload = {
       pickup_address: document.getElementById('deliveryPickup').value.trim(),
       dropoff_address: document.getElementById('deliveryDropoff').value.trim(),
       scheduled_time: new Date(document.getElementById('deliveryScheduledTime').value).toISOString(),
       priority: document.getElementById('deliveryPriority').value,
+      required_capacity: reqCapVal ? Number(reqCapVal) : 0,
+      required_vehicle_type: reqTypeVal ? reqTypeVal.trim() : null,
       notes: document.getElementById('deliveryNotes').value.trim()
     };
 
@@ -830,9 +879,8 @@ const app = {
     const method = editId ? 'PUT' : 'POST';
 
     try {
-      const res = await fetch(url, {
+      const res = await this.apiFetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       const body = await res.json();
@@ -1032,6 +1080,186 @@ const app = {
       const body = await res.json();
       this.showToast(body.message, 'success');
       await this.refreshAll();
+    } catch (err) {
+      this.showToast(err.message, 'error');
+    }
+  },
+
+  async suggestPairing() {
+    const deliveryId = document.getElementById('assignDeliveryId').value;
+    if (!deliveryId) return;
+
+    const box = document.getElementById('assignSuggestionBox');
+    box.style.display = 'block';
+    box.className = 'alert alert-info';
+    box.innerHTML = '<span class="text-muted">Analyzing fleet capacity fit and balancing driver workloads...</span>';
+
+    try {
+      const res = await this.apiFetch(`/deliveries/${deliveryId}/suggestions`);
+      if (!res.ok) throw new Error('Failed to retrieve resource suggestions');
+      const data = await res.json();
+
+      if (data.recommended_pairing) {
+        const p = data.recommended_pairing;
+        document.getElementById('assignVehicleSelect').value = p.vehicle_id;
+        document.getElementById('assignDriverSelect').value = p.driver_id;
+
+        box.className = 'alert alert-info';
+        box.innerHTML = `
+          <div style="font-weight: 700; margin-bottom: 0.25rem;">✨ Optimal Match Identified:</div>
+          <div><strong>Vehicle:</strong> ${this.escapeHtml(p.vehicle_registration)} &nbsp;|&nbsp; <strong>Driver:</strong> ${this.escapeHtml(p.driver_name)}</div>
+          <div class="text-xs mt-1" style="color: #1e40af;"><strong>Rationale:</strong> ${this.escapeHtml(p.rationale)}</div>
+        `;
+      } else {
+        box.className = 'alert alert-warning';
+        box.innerHTML = `
+          <div>⚠️ <strong>No fully compatible pairing available.</strong></div>
+          <div class="text-xs mt-1">No currently available vehicle meets the cargo payload requirement (${data.delivery_requirements.required_capacity} kg) or vehicle type filter.</div>
+        `;
+      }
+    } catch (err) {
+      box.className = 'alert alert-danger';
+      box.textContent = err.message;
+    }
+  },
+
+  async loadPriorityQueue() {
+    try {
+      const res = await this.apiFetch('/deliveries/queue');
+      if (!res.ok) throw new Error('Failed to load priority queue');
+      const data = await res.json();
+      state.queue = data.queue || [];
+      const badge = document.getElementById('countTabQueue');
+      if (badge) badge.textContent = state.queue.length;
+
+      const tbody = document.getElementById('queueTableBody');
+      const emptyState = document.getElementById('queueEmptyState');
+      tbody.innerHTML = '';
+
+      if (state.queue.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+      }
+      emptyState.style.display = 'none';
+
+      state.queue.forEach((d, idx) => {
+        const tr = document.createElement('tr');
+        const reqCap = d.required_capacity ? `${d.required_capacity} kg` : 'Standard';
+        const reqType = d.required_vehicle_type ? d.required_vehicle_type : 'Any';
+
+        tr.innerHTML = `
+          <td><strong>#${idx + 1}</strong></td>
+          <td><span class="id-code">${d.id}</span></td>
+          <td><span class="badge badge-priority-${d.priority}">${d.priority.toUpperCase()}</span></td>
+          <td>
+            <div class="route-schematic">
+              <span>${this.escapeHtml(d.pickup_address)}</span>
+              <span class="route-arrow">➔</span>
+              <span>${this.escapeHtml(d.dropoff_address)}</span>
+            </div>
+          </td>
+          <td><span class="text-sm">${new Date(d.scheduled_time).toLocaleString()}</span></td>
+          <td><span class="text-sm">${reqCap} | ${this.escapeHtml(reqType)}</span></td>
+          <td class="text-right">
+            <button class="btn btn-primary btn-sm" onclick="app.openAssignModal('${d.id}')">⚡ Assign</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (err) {
+      this.showToast(err.message, 'error');
+    }
+  },
+
+  async loadPerformanceAnalytics() {
+    try {
+      const res = await this.apiFetch('/api/analytics/performance');
+      if (!res.ok) throw new Error('Failed to load performance analytics');
+      const data = await res.json();
+      state.analytics = data;
+
+      // Fleet card
+      const fltRate = data.fleet_utilization.utilization_rate_pct;
+      document.getElementById('anlFleetRate').textContent = `${fltRate}%`;
+      document.getElementById('anlFleetProgress').style.width = `${fltRate}%`;
+      document.getElementById('anlFleetSub').textContent = 
+        `${data.fleet_utilization.assigned_vehicles} of ${data.fleet_utilization.total_vehicles} vehicles deployed`;
+
+      // Driver card
+      const drvRate = data.driver_utilization.utilization_rate_pct;
+      document.getElementById('anlDriverRate').textContent = `${drvRate}%`;
+      document.getElementById('anlDriverProgress').style.width = `${drvRate}%`;
+      document.getElementById('anlDriverSub').textContent = 
+        `${data.driver_utilization.assigned_drivers} of ${data.driver_utilization.total_drivers} drivers dispatched`;
+
+      // Completion card
+      const compRate = data.delivery_performance.completion_rate_pct;
+      document.getElementById('anlCompletionRate').textContent = `${compRate}%`;
+      document.getElementById('anlCompletionProgress').style.width = `${compRate}%`;
+      document.getElementById('anlCompletionSub').textContent = 
+        `${data.delivery_performance.completed_deliveries} delivered, ${data.delivery_performance.cancelled_deliveries} cancelled`;
+
+      // Vehicle categories table
+      const vehBody = document.getElementById('anlVehiclesBody');
+      vehBody.innerHTML = '';
+      data.vehicle_types.forEach(v => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${this.escapeHtml(v.type)}</strong></td>
+          <td>${v.total}</td>
+          <td><span class="text-primary" style="font-weight:700;">${v.active}</span></td>
+          <td><span class="text-success">${v.available}</span></td>
+          <td><span class="badge ${v.utilization_pct > 0 ? 'badge-in_transit' : 'badge-available'}">${v.utilization_pct}%</span></td>
+        `;
+        vehBody.appendChild(tr);
+      });
+
+      // Drivers leaderboard table
+      const drvBody = document.getElementById('anlDriversBody');
+      drvBody.innerHTML = '';
+      data.driver_workload.forEach(d => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${this.escapeHtml(d.name)}</strong></td>
+          <td><span class="badge badge-${d.availability_status}">${d.availability_status}</span></td>
+          <td>${d.active_trips}</td>
+          <td><strong class="text-success">${d.completed_trips}</strong></td>
+        `;
+        drvBody.appendChild(tr);
+      });
+    } catch (err) {
+      this.showToast(err.message, 'error');
+    }
+  },
+
+  async loadAuditLogs() {
+    try {
+      const entity = document.getElementById('filterAuditEntity')?.value || '';
+      const url = entity ? `/api/audit-logs?entity_type=${encodeURIComponent(entity)}` : '/api/audit-logs';
+      const res = await this.apiFetch(url);
+      if (!res.ok) throw new Error('Failed to load audit logs');
+      const data = await res.json();
+      state.auditLogs = data.logs || [];
+
+      const tbody = document.getElementById('auditTableBody');
+      tbody.innerHTML = '';
+      if (state.auditLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding: 2rem;">No audit records found.</td></tr>';
+        return;
+      }
+
+      state.auditLogs.forEach(l => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="text-sm font-mono">${new Date(l.timestamp).toLocaleString()}</span></td>
+          <td><span class="badge badge-system">${l.entity_type.toUpperCase()}</span></td>
+          <td><span class="id-code">${l.entity_id}</span></td>
+          <td><span class="badge badge-available">${l.action}</span></td>
+          <td><span class="text-sm" style="font-weight:700;">${this.escapeHtml(l.performed_by)}</span></td>
+          <td><span class="text-sm">${this.escapeHtml(l.details || '-')}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
     } catch (err) {
       this.showToast(err.message, 'error');
     }
