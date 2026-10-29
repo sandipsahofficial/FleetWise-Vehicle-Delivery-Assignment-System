@@ -1,6 +1,6 @@
 /**
- * FleetWise - Frontend Client Application
- * Handles operational dashboards, assignment engine interactions, and live metrics.
+ * FleetWise - Frontend Client Application & Dispatcher Dashboard
+ * Connected directly to backend REST endpoints.
  */
 
 const state = {
@@ -13,6 +13,14 @@ const state = {
     search: '',
     status: '',
     priority: ''
+  },
+  sorting: {
+    column: 'time',
+    ascending: true
+  },
+  pagination: {
+    page: 1,
+    pageSize: 10
   }
 };
 
@@ -23,13 +31,14 @@ const app = {
     await this.checkHealth();
     await this.refreshAll();
 
-    // Periodic health & background sync every 15 seconds
+    // Auto health check every 15s
     setInterval(() => this.checkHealth(), 15000);
   },
 
   bindEvents() {
     // Tab switching
     document.getElementById('tabDeliveries').addEventListener('click', () => this.switchView('deliveries'));
+    document.getElementById('tabBoard').addEventListener('click', () => this.switchView('board'));
     document.getElementById('tabVehicles').addEventListener('click', () => this.switchView('vehicles'));
     document.getElementById('tabDrivers').addEventListener('click', () => this.switchView('drivers'));
 
@@ -37,8 +46,6 @@ const app = {
     document.getElementById('btnRefreshAll').addEventListener('click', () => this.refreshAll());
     document.getElementById('btnSeedDemo').addEventListener('click', () => this.seedDemoData());
     document.getElementById('btnOpenNewDeliveryModal').addEventListener('click', () => this.openNewDeliveryModal());
-    document.getElementById('btnCreateVehicleFromTab').addEventListener('click', () => this.openNewVehicleModal());
-    document.getElementById('btnCreateDriverFromTab').addEventListener('click', () => this.openNewDriverModal());
 
     // Search and filters
     const searchInput = document.getElementById('searchInput');
@@ -47,17 +54,20 @@ const app = {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         state.filters.search = e.target.value.trim();
+        state.pagination.page = 1;
         this.renderCurrentView();
       }, 250);
     });
 
     document.getElementById('filterStatus').addEventListener('change', (e) => {
       state.filters.status = e.target.value;
+      state.pagination.page = 1;
       this.renderCurrentView();
     });
 
     document.getElementById('filterPriority').addEventListener('change', (e) => {
       state.filters.priority = e.target.value;
+      state.pagination.page = 1;
       this.renderCurrentView();
     });
 
@@ -65,6 +75,7 @@ const app = {
       state.filters.search = '';
       state.filters.status = '';
       state.filters.priority = '';
+      state.pagination.page = 1;
       document.getElementById('searchInput').value = '';
       document.getElementById('filterStatus').value = '';
       document.getElementById('filterPriority').value = '';
@@ -73,9 +84,9 @@ const app = {
 
     // Form Submissions
     document.getElementById('formAssign').addEventListener('submit', (e) => this.handleAssignSubmit(e));
-    document.getElementById('formNewDelivery').addEventListener('submit', (e) => this.handleNewDeliverySubmit(e));
-    document.getElementById('formNewVehicle').addEventListener('submit', (e) => this.handleNewVehicleSubmit(e));
-    document.getElementById('formNewDriver').addEventListener('submit', (e) => this.handleNewDriverSubmit(e));
+    document.getElementById('formNewDelivery').addEventListener('submit', (e) => this.handleDeliveryFormSubmit(e));
+    document.getElementById('formNewVehicle').addEventListener('submit', (e) => this.handleVehicleFormSubmit(e));
+    document.getElementById('formNewDriver').addEventListener('submit', (e) => this.handleDriverFormSubmit(e));
 
     // Close modal on escape or background click
     document.querySelectorAll('.modal-overlay').forEach(modal => {
@@ -231,22 +242,24 @@ const app = {
   switchView(viewName) {
     state.currentView = viewName;
 
-    // Update tab styling
+    // Tabs
     document.getElementById('tabDeliveries').classList.toggle('active', viewName === 'deliveries');
+    document.getElementById('tabBoard').classList.toggle('active', viewName === 'board');
     document.getElementById('tabVehicles').classList.toggle('active', viewName === 'vehicles');
     document.getElementById('tabDrivers').classList.toggle('active', viewName === 'drivers');
 
-    // Toggle panels
+    // Panels
     document.getElementById('viewDeliveries').style.display = viewName === 'deliveries' ? 'block' : 'none';
+    document.getElementById('viewBoard').style.display = viewName === 'board' ? 'block' : 'none';
     document.getElementById('viewVehicles').style.display = viewName === 'vehicles' ? 'block' : 'none';
     document.getElementById('viewDrivers').style.display = viewName === 'drivers' ? 'block' : 'none';
 
-    // Context actions
+    // Context action buttons
     document.getElementById('btnCreateVehicleFromTab').style.display = viewName === 'vehicles' ? 'inline-flex' : 'none';
     document.getElementById('btnCreateDriverFromTab').style.display = viewName === 'drivers' ? 'inline-flex' : 'none';
 
-    // Adjust filter controls for non-delivery views
-    document.getElementById('filterPriorityGroup').style.display = viewName === 'deliveries' ? 'flex' : 'none';
+    // Filters visibility
+    document.getElementById('filterPriorityGroup').style.display = (viewName === 'deliveries' || viewName === 'board') ? 'flex' : 'none';
 
     this.renderCurrentView();
   },
@@ -254,6 +267,8 @@ const app = {
   renderCurrentView() {
     if (state.currentView === 'deliveries') {
       this.renderDeliveriesTable();
+    } else if (state.currentView === 'board') {
+      this.renderBoard();
     } else if (state.currentView === 'vehicles') {
       this.renderVehiclesTable();
     } else if (state.currentView === 'drivers') {
@@ -261,16 +276,12 @@ const app = {
     }
   },
 
-  renderDeliveriesTable() {
-    const tbody = document.getElementById('deliveriesTableBody');
-    const emptyState = document.getElementById('deliveriesEmptyState');
-    tbody.innerHTML = '';
-
+  getFilteredDeliveries() {
     const query = state.filters.search.toLowerCase();
     const statusFilter = state.filters.status;
     const priorityFilter = state.filters.priority;
 
-    const filtered = state.deliveries.filter(d => {
+    let list = state.deliveries.filter(d => {
       if (statusFilter && d.status !== statusFilter) return false;
       if (priorityFilter && d.priority !== priorityFilter) return false;
       if (query) {
@@ -284,19 +295,84 @@ const app = {
       return true;
     });
 
+    // Sort
+    const col = state.sorting.column;
+    const asc = state.sorting.ascending;
+    list.sort((a, b) => {
+      let vA = a[col] || '';
+      let vB = b[col] || '';
+      if (col === 'time') {
+        vA = new Date(a.scheduled_time).getTime();
+        vB = new Date(b.scheduled_time).getTime();
+      }
+      if (vA < vB) return asc ? -1 : 1;
+      if (vA > vB) return asc ? 1 : -1;
+      return 0;
+    });
+
+    return list;
+  },
+
+  sortDeliveries(column) {
+    if (state.sorting.column === column) {
+      state.sorting.ascending = !state.sorting.ascending;
+    } else {
+      state.sorting.column = column;
+      state.sorting.ascending = true;
+    }
+    this.renderDeliveriesTable();
+  },
+
+  prevPage(type) {
+    if (state.pagination.page > 1) {
+      state.pagination.page--;
+      this.renderDeliveriesTable();
+    }
+  },
+
+  nextPage(type) {
+    const filtered = this.getFilteredDeliveries();
+    const maxPage = Math.ceil(filtered.length / state.pagination.pageSize) || 1;
+    if (state.pagination.page < maxPage) {
+      state.pagination.page++;
+      this.renderDeliveriesTable();
+    }
+  },
+
+  renderDeliveriesTable() {
+    const tbody = document.getElementById('deliveriesTableBody');
+    const emptyState = document.getElementById('deliveriesEmptyState');
+    tbody.innerHTML = '';
+
+    const filtered = this.getFilteredDeliveries();
+
     if (filtered.length === 0) {
       emptyState.style.display = 'block';
+      document.getElementById('deliveriesPaginationBar').style.display = 'none';
       return;
     }
     emptyState.style.display = 'none';
+    document.getElementById('deliveriesPaginationBar').style.display = 'flex';
 
-    filtered.forEach(d => {
+    // Pagination
+    const total = filtered.length;
+    const pageSize = state.pagination.pageSize;
+    const totalPages = Math.ceil(total / pageSize) || 1;
+    if (state.pagination.page > totalPages) state.pagination.page = totalPages;
+    const startIdx = (state.pagination.page - 1) * pageSize;
+    const endIdx = Math.min(startIdx + pageSize, total);
+    const paged = filtered.slice(startIdx, endIdx);
+
+    document.getElementById('delPaginationInfo').textContent = `Showing ${startIdx + 1}-${endIdx} of ${total} deliveries`;
+    document.getElementById('delPageIndicator').textContent = `Page ${state.pagination.page} of ${totalPages}`;
+    document.getElementById('btnDelPrev').disabled = state.pagination.page <= 1;
+    document.getElementById('btnDelNext').disabled = state.pagination.page >= totalPages;
+
+    paged.forEach(d => {
       const tr = document.createElement('tr');
       const isPending = d.status === 'pending';
       const isAssigned = d.status === 'assigned';
       const isInTransit = d.status === 'in_transit';
-      const isDelivered = d.status === 'delivered';
-      const isCancelled = d.status === 'cancelled';
 
       const schedDate = new Date(d.scheduled_time).toLocaleString();
 
@@ -311,8 +387,10 @@ const app = {
       let actionButtons = '';
       if (isPending) {
         actionButtons = `
-          <button class="btn btn-action-assign" onclick="app.openAssignModal('${d.id}')">Assign Resource</button>
+          <button class="btn btn-action-assign" onclick="app.openAssignModal('${d.id}')">Assign</button>
+          <button class="btn btn-action-edit" onclick="app.openEditDeliveryModal('${d.id}')">Edit</button>
           <button class="btn btn-action-cancel" onclick="app.transitionStatus('${d.id}', 'cancelled')">Cancel</button>
+          <button class="btn btn-action-delete" onclick="app.deleteDelivery('${d.id}')">Delete</button>
         `;
       } else if (isAssigned) {
         actionButtons = `
@@ -322,13 +400,14 @@ const app = {
         `;
       } else if (isInTransit) {
         actionButtons = `
-          <button class="btn btn-action-deliver" onclick="app.transitionStatus('${d.id}', 'delivered')">Mark Delivered</button>
+          <button class="btn btn-action-deliver" onclick="app.transitionStatus('${d.id}', 'delivered')">Deliver</button>
           <button class="btn btn-action-cancel" onclick="app.transitionStatus('${d.id}', 'cancelled')">Cancel</button>
           <button class="btn btn-ghost btn-sm" onclick="app.viewDeliveryDetails('${d.id}')">Audit</button>
         `;
       } else {
         actionButtons = `
-          <button class="btn btn-ghost btn-sm" onclick="app.viewDeliveryDetails('${d.id}')">Audit Log</button>
+          <button class="btn btn-ghost btn-sm" onclick="app.viewDeliveryDetails('${d.id}')">Audit</button>
+          <button class="btn btn-action-delete" onclick="app.deleteDelivery('${d.id}')">Delete</button>
         `;
       }
 
@@ -347,6 +426,79 @@ const app = {
       `;
       tbody.appendChild(tr);
     });
+  },
+
+  renderBoard() {
+    const cols = {
+      pending: document.getElementById('boardColPending'),
+      assigned: document.getElementById('boardColAssigned'),
+      in_transit: document.getElementById('boardColInTransit'),
+      delivered: document.getElementById('boardColDelivered'),
+      cancelled: document.getElementById('boardColCancelled')
+    };
+
+    Object.values(cols).forEach(c => c.innerHTML = '');
+
+    const counts = { pending: 0, assigned: 0, in_transit: 0, delivered: 0, cancelled: 0 };
+    const filtered = this.getFilteredDeliveries();
+
+    filtered.forEach(d => {
+      if (counts[d.status] !== undefined) counts[d.status]++;
+      const colEl = cols[d.status];
+      if (!colEl) return;
+
+      const card = document.createElement('div');
+      card.className = 'board-card';
+
+      let cardActions = '';
+      if (d.status === 'pending') {
+        cardActions = `
+          <button class="btn btn-action-assign" onclick="app.openAssignModal('${d.id}')">Assign Resource</button>
+          <button class="btn btn-action-cancel" onclick="app.transitionStatus('${d.id}', 'cancelled')">Cancel</button>
+        `;
+      } else if (d.status === 'assigned') {
+        cardActions = `
+          <button class="btn btn-action-transit" onclick="app.transitionStatus('${d.id}', 'in_transit')">Dispatch</button>
+          <button class="btn btn-action-cancel" onclick="app.transitionStatus('${d.id}', 'cancelled')">Cancel</button>
+          <button class="btn btn-ghost btn-sm" onclick="app.viewDeliveryDetails('${d.id}')">Audit</button>
+        `;
+      } else if (d.status === 'in_transit') {
+        cardActions = `
+          <button class="btn btn-action-deliver" onclick="app.transitionStatus('${d.id}', 'delivered')">Mark Delivered</button>
+          <button class="btn btn-action-cancel" onclick="app.transitionStatus('${d.id}', 'cancelled')">Cancel</button>
+          <button class="btn btn-ghost btn-sm" onclick="app.viewDeliveryDetails('${d.id}')">Audit</button>
+        `;
+      } else {
+        cardActions = `
+          <button class="btn btn-ghost btn-sm" onclick="app.viewDeliveryDetails('${d.id}')">Audit Log</button>
+        `;
+      }
+
+      card.innerHTML = `
+        <div class="board-card-header">
+          <span class="id-code">${d.id}</span>
+          <span class="priority-${d.priority}">${d.priority.toUpperCase()}</span>
+        </div>
+        <div class="board-card-route">
+          <div class="board-card-route-pickup">${this.escapeHtml(d.pickup_address)}</div>
+          <div class="board-card-route-dropoff">➔ ${this.escapeHtml(d.dropoff_address)}</div>
+        </div>
+        ${d.assignment ? `
+          <div class="board-card-meta">
+            <div>🚚 ${d.assignment.vehicle.registration_number}</div>
+            <div>👤 ${d.assignment.driver.name}</div>
+          </div>
+        ` : ''}
+        <div class="board-card-actions">${cardActions}</div>
+      `;
+      colEl.appendChild(card);
+    });
+
+    document.getElementById('boardCountPending').textContent = counts.pending;
+    document.getElementById('boardCountAssigned').textContent = counts.assigned;
+    document.getElementById('boardCountInTransit').textContent = counts.in_transit;
+    document.getElementById('boardCountDelivered').textContent = counts.delivered;
+    document.getElementById('boardCountCancelled').textContent = counts.cancelled;
   },
 
   renderVehiclesTable() {
@@ -381,7 +533,6 @@ const app = {
          <div class="text-sm text-muted">${v.active_delivery.pickup_address} ➔ ${v.active_delivery.dropoff_address}</div>` :
         `<span class="text-muted">None</span>`;
 
-      // Status selector
       const statusSelect = `
         <select class="select-input text-sm" onchange="app.handleVehicleStatusChange('${v.id}', this.value)" ${v.status === 'assigned' ? 'title="Assigned via active delivery. Complete or cancel delivery to release."' : ''}>
           <option value="available" ${v.status === 'available' ? 'selected' : ''}>Available</option>
@@ -399,6 +550,12 @@ const app = {
         <td><span class="badge badge-${v.status}">${v.status}</span></td>
         <td>${activeDeliveryInfo}</td>
         <td>${statusSelect}</td>
+        <td class="text-right">
+          <div class="table-actions">
+            <button class="btn btn-action-edit" onclick="app.openEditVehicleModal('${v.id}')">Edit</button>
+            <button class="btn btn-action-delete" onclick="app.deleteVehicle('${v.id}')">Delete</button>
+          </div>
+        </td>
       `;
       tbody.appendChild(tr);
     });
@@ -436,7 +593,6 @@ const app = {
          <div class="text-sm text-muted">${d.active_delivery.pickup_address} ➔ ${d.active_delivery.dropoff_address}</div>` :
         `<span class="text-muted">None</span>`;
 
-      // Status selector
       const statusSelect = `
         <select class="select-input text-sm" onchange="app.handleDriverStatusChange('${d.id}', this.value)" ${d.availability_status === 'assigned' ? 'title="Assigned via active delivery. Complete or cancel delivery to release."' : ''}>
           <option value="available" ${d.availability_status === 'available' ? 'selected' : ''}>Available</option>
@@ -452,6 +608,12 @@ const app = {
         <td><span class="badge badge-${d.availability_status}">${d.availability_status}</span></td>
         <td>${activeDeliveryInfo}</td>
         <td>${statusSelect}</td>
+        <td class="text-right">
+          <div class="table-actions">
+            <button class="btn btn-action-edit" onclick="app.openEditDriverModal('${d.id}')">Edit</button>
+            <button class="btn btn-action-delete" onclick="app.deleteDriver('${d.id}')">Delete</button>
+          </div>
+        </td>
       `;
       tbody.appendChild(tr);
     });
@@ -464,7 +626,6 @@ const app = {
     document.getElementById('assignDeliveryId').value = deliveryId;
     document.getElementById('assignConflictNotice').style.display = 'none';
 
-    // Preview
     document.getElementById('assignDeliveryPreview').innerHTML = `
       <div style="font-weight: 700; margin-bottom: 0.25rem;">Delivery: <span class="id-code">${delivery.id}</span> [${delivery.priority.toUpperCase()}]</div>
       <div class="preview-route">
@@ -474,7 +635,7 @@ const app = {
       </div>
     `;
 
-    // Filter eligible available vehicles
+    // Eligible available vehicles
     const vehSelect = document.getElementById('assignVehicleSelect');
     vehSelect.innerHTML = '<option value="">-- Choose an Available Vehicle --</option>';
     const availableVehicles = state.vehicles.filter(v => v.status === 'available' && !v.active_delivery);
@@ -486,7 +647,7 @@ const app = {
       });
     }
 
-    // Filter eligible available drivers
+    // Eligible available drivers
     const drvSelect = document.getElementById('assignDriverSelect');
     drvSelect.innerHTML = '<option value="">-- Choose an Available Driver --</option>';
     const availableDrivers = state.drivers.filter(d => d.availability_status === 'available' && !d.active_delivery);
@@ -522,9 +683,7 @@ const app = {
       });
 
       const body = await res.json();
-      if (!res.ok) {
-        throw new Error(body.message || 'Assignment failed');
-      }
+      if (!res.ok) throw new Error(body.message || 'Assignment failed');
 
       this.showToast('Resource assigned successfully!', 'success');
       this.closeModal('modalAssign');
@@ -551,9 +710,7 @@ const app = {
       });
 
       const body = await res.json();
-      if (!res.ok) {
-        throw new Error(body.message || 'Status transition failed');
-      }
+      if (!res.ok) throw new Error(body.message || 'Status transition failed');
 
       this.showToast(`Delivery transitioned to ${newStatus.replace('_', ' ')}`, 'success');
       await this.refreshAll();
@@ -569,7 +726,6 @@ const app = {
     document.getElementById('modalDetailsTitle').textContent = `Delivery Details: ${delivery.id}`;
     document.getElementById('modalDetailsSubtitle').textContent = `Priority: ${delivery.priority.toUpperCase()} | Status: ${delivery.status.toUpperCase()}`;
 
-    // Fetch assignment history
     let historyHtml = '<p class="text-muted">Loading audit log...</p>';
     try {
       const res = await fetch(`/deliveries/${deliveryId}/assignments`);
@@ -636,6 +792,202 @@ const app = {
     this.openModal('modalDetails');
   },
 
+  openNewDeliveryModal() {
+    document.getElementById('deliveryEditId').value = '';
+    document.getElementById('modalNewDeliveryTitle').textContent = 'Create Delivery Request';
+    document.getElementById('btnSubmitDelivery').textContent = 'Submit Delivery';
+    document.getElementById('formNewDelivery').reset();
+    this.setDefaultScheduledTime();
+    this.openModal('modalNewDelivery');
+  },
+
+  openEditDeliveryModal(deliveryId) {
+    const d = state.deliveries.find(item => item.id === deliveryId);
+    if (!d) return;
+    document.getElementById('deliveryEditId').value = d.id;
+    document.getElementById('modalNewDeliveryTitle').textContent = `Edit Delivery ${d.id}`;
+    document.getElementById('btnSubmitDelivery').textContent = 'Update Delivery';
+    document.getElementById('deliveryPickup').value = d.pickup_address;
+    document.getElementById('deliveryDropoff').value = d.dropoff_address;
+    document.getElementById('deliveryScheduledTime').value = new Date(d.scheduled_time).toISOString().slice(0, 16);
+    document.getElementById('deliveryPriority').value = d.priority;
+    document.getElementById('deliveryNotes').value = d.notes || '';
+    this.openModal('modalNewDelivery');
+  },
+
+  async handleDeliveryFormSubmit(e) {
+    e.preventDefault();
+    const editId = document.getElementById('deliveryEditId').value;
+    const payload = {
+      pickup_address: document.getElementById('deliveryPickup').value.trim(),
+      dropoff_address: document.getElementById('deliveryDropoff').value.trim(),
+      scheduled_time: new Date(document.getElementById('deliveryScheduledTime').value).toISOString(),
+      priority: document.getElementById('deliveryPriority').value,
+      notes: document.getElementById('deliveryNotes').value.trim()
+    };
+
+    const url = editId ? `/deliveries/${editId}` : '/deliveries';
+    const method = editId ? 'PUT' : 'POST';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.message || 'Operation failed');
+
+      this.showToast(editId ? `Delivery ${editId} updated!` : `Delivery ${body.id} created!`, 'success');
+      this.closeModal('modalNewDelivery');
+      await this.refreshAll();
+    } catch (err) {
+      this.showToast(err.message, 'error');
+    }
+  },
+
+  async deleteDelivery(id) {
+    if (!confirm(`Are you sure you want to delete delivery '${id}'? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/deliveries/${id}`, { method: 'DELETE' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.message || 'Failed to delete delivery');
+
+      this.showToast(`Delivery '${id}' deleted`, 'success');
+      await this.refreshAll();
+    } catch (err) {
+      this.showToast(err.message, 'error');
+    }
+  },
+
+  openNewVehicleModal() {
+    document.getElementById('vehicleEditId').value = '';
+    document.getElementById('modalNewVehicleTitle').textContent = 'Register Vehicle';
+    document.getElementById('btnSubmitVehicle').textContent = 'Save Vehicle';
+    document.getElementById('formNewVehicle').reset();
+    this.openModal('modalNewVehicle');
+  },
+
+  openEditVehicleModal(vehicleId) {
+    const v = state.vehicles.find(item => item.id === vehicleId);
+    if (!v) return;
+    document.getElementById('vehicleEditId').value = v.id;
+    document.getElementById('modalNewVehicleTitle').textContent = `Edit Vehicle ${v.registration_number}`;
+    document.getElementById('btnSubmitVehicle').textContent = 'Update Vehicle';
+    document.getElementById('vehicleReg').value = v.registration_number;
+    document.getElementById('vehicleType').value = v.type;
+    document.getElementById('vehicleCapacity').value = v.capacity;
+    document.getElementById('vehicleInitialStatus').value = v.status;
+    this.openModal('modalNewVehicle');
+  },
+
+  async handleVehicleFormSubmit(e) {
+    e.preventDefault();
+    const editId = document.getElementById('vehicleEditId').value;
+    const payload = {
+      registration_number: document.getElementById('vehicleReg').value.trim(),
+      type: document.getElementById('vehicleType').value.trim(),
+      capacity: parseFloat(document.getElementById('vehicleCapacity').value),
+      status: document.getElementById('vehicleInitialStatus').value
+    };
+
+    const url = editId ? `/vehicles/${editId}` : '/vehicles';
+    const method = editId ? 'PUT' : 'POST';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.message || 'Operation failed');
+
+      this.showToast(editId ? `Vehicle updated!` : `Vehicle ${body.registration_number} registered!`, 'success');
+      this.closeModal('modalNewVehicle');
+      await this.refreshAll();
+    } catch (err) {
+      this.showToast(err.message, 'error');
+    }
+  },
+
+  async deleteVehicle(id) {
+    if (!confirm(`Are you sure you want to delete vehicle '${id}'? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/vehicles/${id}`, { method: 'DELETE' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.message || 'Failed to delete vehicle');
+
+      this.showToast(`Vehicle '${id}' deleted`, 'success');
+      await this.refreshAll();
+    } catch (err) {
+      this.showToast(err.message, 'error');
+    }
+  },
+
+  openNewDriverModal() {
+    document.getElementById('driverEditId').value = '';
+    document.getElementById('modalNewDriverTitle').textContent = 'Register Driver';
+    document.getElementById('btnSubmitDriver').textContent = 'Save Driver';
+    document.getElementById('formNewDriver').reset();
+    this.openModal('modalNewDriver');
+  },
+
+  openEditDriverModal(driverId) {
+    const d = state.drivers.find(item => item.id === driverId);
+    if (!d) return;
+    document.getElementById('driverEditId').value = d.id;
+    document.getElementById('modalNewDriverTitle').textContent = `Edit Driver ${d.name}`;
+    document.getElementById('btnSubmitDriver').textContent = 'Update Driver';
+    document.getElementById('driverName').value = d.name;
+    document.getElementById('driverPhone').value = d.phone;
+    document.getElementById('driverInitialStatus').value = d.availability_status;
+    this.openModal('modalNewDriver');
+  },
+
+  async handleDriverFormSubmit(e) {
+    e.preventDefault();
+    const editId = document.getElementById('driverEditId').value;
+    const payload = {
+      name: document.getElementById('driverName').value.trim(),
+      phone: document.getElementById('driverPhone').value.trim(),
+      availability_status: document.getElementById('driverInitialStatus').value
+    };
+
+    const url = editId ? `/drivers/${editId}` : '/drivers';
+    const method = editId ? 'PUT' : 'POST';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.message || 'Operation failed');
+
+      this.showToast(editId ? `Driver updated!` : `Driver ${body.name} registered!`, 'success');
+      this.closeModal('modalNewDriver');
+      await this.refreshAll();
+    } catch (err) {
+      this.showToast(err.message, 'error');
+    }
+  },
+
+  async deleteDriver(id) {
+    if (!confirm(`Are you sure you want to delete driver '${id}'? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/drivers/${id}`, { method: 'DELETE' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.message || 'Failed to delete driver');
+
+      this.showToast(`Driver '${id}' deleted`, 'success');
+      await this.refreshAll();
+    } catch (err) {
+      this.showToast(err.message, 'error');
+    }
+  },
+
   async handleVehicleStatusChange(vehicleId, newStatus) {
     try {
       const res = await fetch(`/vehicles/${vehicleId}/status`, {
@@ -645,15 +997,13 @@ const app = {
       });
 
       const body = await res.json();
-      if (!res.ok) {
-        throw new Error(body.message || 'Failed to update vehicle status');
-      }
+      if (!res.ok) throw new Error(body.message || 'Failed to update vehicle status');
 
       this.showToast(`Vehicle status changed to ${newStatus}`, 'success');
       await this.refreshAll();
     } catch (err) {
       this.showToast(err.message, 'error');
-      await this.refreshAll(); // Refresh to restore previous dropdown select
+      await this.refreshAll();
     }
   },
 
@@ -666,97 +1016,13 @@ const app = {
       });
 
       const body = await res.json();
-      if (!res.ok) {
-        throw new Error(body.message || 'Failed to update driver status');
-      }
+      if (!res.ok) throw new Error(body.message || 'Failed to update driver status');
 
       this.showToast(`Driver status changed to ${newStatus}`, 'success');
       await this.refreshAll();
     } catch (err) {
       this.showToast(err.message, 'error');
       await this.refreshAll();
-    }
-  },
-
-  async handleNewDeliverySubmit(e) {
-    e.preventDefault();
-    const payload = {
-      pickup_address: document.getElementById('deliveryPickup').value.trim(),
-      dropoff_address: document.getElementById('deliveryDropoff').value.trim(),
-      scheduled_time: new Date(document.getElementById('deliveryScheduledTime').value).toISOString(),
-      priority: document.getElementById('deliveryPriority').value,
-      notes: document.getElementById('deliveryNotes').value.trim()
-    };
-
-    try {
-      const res = await fetch('/deliveries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.message || 'Failed to create delivery');
-
-      this.showToast(`Delivery ${body.id} created!`, 'success');
-      this.closeModal('modalNewDelivery');
-      document.getElementById('formNewDelivery').reset();
-      this.setDefaultScheduledTime();
-      await this.refreshAll();
-    } catch (err) {
-      this.showToast(err.message, 'error');
-    }
-  },
-
-  async handleNewVehicleSubmit(e) {
-    e.preventDefault();
-    const payload = {
-      registration_number: document.getElementById('vehicleReg').value.trim(),
-      type: document.getElementById('vehicleType').value.trim(),
-      capacity: parseFloat(document.getElementById('vehicleCapacity').value),
-      status: document.getElementById('vehicleInitialStatus').value
-    };
-
-    try {
-      const res = await fetch('/vehicles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.message || 'Failed to create vehicle');
-
-      this.showToast(`Vehicle ${body.registration_number} registered!`, 'success');
-      this.closeModal('modalNewVehicle');
-      document.getElementById('formNewVehicle').reset();
-      await this.refreshAll();
-    } catch (err) {
-      this.showToast(err.message, 'error');
-    }
-  },
-
-  async handleNewDriverSubmit(e) {
-    e.preventDefault();
-    const payload = {
-      name: document.getElementById('driverName').value.trim(),
-      phone: document.getElementById('driverPhone').value.trim(),
-      availability_status: document.getElementById('driverInitialStatus').value
-    };
-
-    try {
-      const res = await fetch('/drivers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.message || 'Failed to create driver');
-
-      this.showToast(`Driver ${body.name} registered!`, 'success');
-      this.closeModal('modalNewDriver');
-      document.getElementById('formNewDriver').reset();
-      await this.refreshAll();
-    } catch (err) {
-      this.showToast(err.message, 'error');
     }
   },
 
@@ -779,19 +1045,6 @@ const app = {
   closeModal(id) {
     const el = document.getElementById(id);
     if (el) el.classList.remove('open');
-  },
-
-  openNewDeliveryModal() {
-    this.setDefaultScheduledTime();
-    this.openModal('modalNewDelivery');
-  },
-
-  openNewVehicleModal() {
-    this.openModal('modalNewVehicle');
-  },
-
-  openNewDriverModal() {
-    this.openModal('modalNewDriver');
   },
 
   showToast(message, type = 'info') {
@@ -831,4 +1084,3 @@ document.addEventListener('DOMContentLoaded', () => {
   window.app = app;
   app.init();
 });
-

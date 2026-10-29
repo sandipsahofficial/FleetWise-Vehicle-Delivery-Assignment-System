@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FleetWise — Vehicle & Delivery Assignment System</title>
+  <title>FleetWise — Dispatcher Dashboard</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +20,7 @@
         <div class="brand-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="1" y="3" width="15" height="13"></rect>
-            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
             <circle cx="5.5" cy="18.5" r="2.5"></circle>
             <circle cx="18.5" cy="18.5" r="2.5"></circle>
           </svg>
@@ -28,9 +28,9 @@
         <div>
           <div class="brand-title">
             <span class="brand-bold">FleetWise</span>
-            <span class="badge badge-system">Assignment Engine</span>
+            <span class="badge badge-system">Dispatcher OS</span>
           </div>
-          <div class="brand-sub">Vehicle & Delivery Dispatch Management</div>
+          <div class="brand-sub">Centralized Vehicle & Delivery Assignment System</div>
         </div>
       </div>
 
@@ -68,14 +68,14 @@
     <!-- KPI Analytics Section -->
     <section class="kpi-section" aria-label="Operational Metrics">
       <div class="kpi-grid">
-        <!-- Card 1: Vehicles -->
+        <!-- Card 1: Total Vehicles -->
         <div class="kpi-card" id="kpiVehiclesCard">
           <div class="kpi-header">
             <span class="kpi-title">Fleet Vehicles</span>
             <span class="kpi-icon icon-blue">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="1" y="3" width="15" height="13"></rect>
-                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
                 <circle cx="5.5" cy="18.5" r="2.5"></circle>
                 <circle cx="18.5" cy="18.5" r="2.5"></circle>
               </svg>
@@ -91,7 +91,7 @@
           </div>
         </div>
 
-        <!-- Card 2: Drivers -->
+        <!-- Card 2: Driver Roster -->
         <div class="kpi-card" id="kpiDriversCard">
           <div class="kpi-header">
             <span class="kpi-title">Driver Roster</span>
@@ -130,7 +130,7 @@
         <!-- Card 4: Active Deliveries -->
         <div class="kpi-card" id="kpiActiveCard">
           <div class="kpi-header">
-            <span class="kpi-title">Active In-Progress</span>
+            <span class="kpi-title">Active Deliveries</span>
             <span class="kpi-icon icon-purple">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
@@ -145,7 +145,7 @@
           </div>
         </div>
 
-        <!-- Card 5: Completed & Utilization -->
+        <!-- Card 5: Completed Deliveries & Fleet Utilization -->
         <div class="kpi-card" id="kpiCompletedCard">
           <div class="kpi-header">
             <span class="kpi-title">Completed Deliveries</span>
@@ -164,7 +164,7 @@
         </div>
       </div>
 
-      <!-- Accurate Operational Visual Breakdown Chart -->
+      <!-- Live Delivery Status Progress Bar -->
       <div class="chart-container">
         <div class="chart-header">
           <div class="chart-title">Delivery Status Distribution</div>
@@ -186,7 +186,7 @@
       </div>
     </section>
 
-    <!-- Navigation Tabs & Toolbar -->
+    <!-- Navigation Tabs & View Toggles -->
     <div class="view-navigation">
       <div class="tabs-list" role="tablist">
         <button id="tabDeliveries" class="tab-button active" role="tab" aria-selected="true">
@@ -194,8 +194,15 @@
             <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
             <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
           </svg>
-          Deliveries Dispatch
+          Deliveries Table
           <span class="tab-count" id="countTabDeliveries">0</span>
+        </button>
+        <button id="tabBoard" class="tab-button" role="tab" aria-selected="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="18" rx="1"></rect>
+            <rect x="14" y="3" width="7" height="18" rx="1"></rect>
+          </svg>
+          Status Board
         </button>
         <button id="tabVehicles" class="tab-button" role="tab" aria-selected="false">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -218,10 +225,10 @@
       </div>
 
       <div class="tab-context-actions">
-        <button id="btnCreateVehicleFromTab" class="btn btn-secondary btn-sm" style="display: none;">
+        <button id="btnCreateVehicleFromTab" class="btn btn-secondary btn-sm" style="display: none;" onclick="app.openNewVehicleModal()">
           + Add Vehicle
         </button>
-        <button id="btnCreateDriverFromTab" class="btn btn-secondary btn-sm" style="display: none;">
+        <button id="btnCreateDriverFromTab" class="btn btn-secondary btn-sm" style="display: none;" onclick="app.openNewDriverModal()">
           + Add Driver
         </button>
       </div>
@@ -274,18 +281,18 @@
           <table class="data-table" id="deliveriesTable">
             <thead>
               <tr>
-                <th>Delivery ID</th>
+                <th onclick="app.sortDeliveries('id')" class="sortable">Delivery ID <span id="sort_del_id"></span></th>
                 <th>Route (Pickup & Drop-off)</th>
-                <th>Scheduled Time</th>
-                <th>Priority</th>
-                <th>Status</th>
+                <th onclick="app.sortDeliveries('time')" class="sortable">Scheduled Time <span id="sort_del_time"></span></th>
+                <th onclick="app.sortDeliveries('priority')" class="sortable">Priority <span id="sort_del_priority"></span></th>
+                <th onclick="app.sortDeliveries('status')" class="sortable">Status <span id="sort_del_status"></span></th>
                 <th>Assigned Vehicle</th>
                 <th>Assigned Driver</th>
-                <th class="text-right">Operational Actions</th>
+                <th class="text-right">Actions</th>
               </tr>
             </thead>
             <tbody id="deliveriesTableBody">
-              <!-- Dynamically populated -->
+              <!-- Populated dynamically -->
             </tbody>
           </table>
         </div>
@@ -295,16 +302,76 @@
           <p class="text-muted">No delivery requests match the active search and filter criteria.</p>
           <button class="btn btn-primary btn-sm" onclick="app.openNewDeliveryModal()">Create Delivery Request</button>
         </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-bar" id="deliveriesPaginationBar">
+          <span class="pagination-info" id="delPaginationInfo">Showing 0-0 of 0</span>
+          <div class="pagination-buttons">
+            <button class="btn btn-ghost btn-sm" id="btnDelPrev" onclick="app.prevPage('del')">Previous</button>
+            <span class="page-indicator" id="delPageIndicator">Page 1</span>
+            <button class="btn btn-ghost btn-sm" id="btnDelNext" onclick="app.nextPage('del')">Next</button>
+          </div>
+        </div>
       </div>
     </section>
 
-    <!-- VIEW 2: VEHICLES TABLE -->
+    <!-- VIEW 2: STATUS BOARD (KANBAN PIPELINE) -->
+    <section id="viewBoard" class="view-panel" style="display: none;">
+      <div class="board-grid">
+        <!-- Column 1: Pending -->
+        <div class="board-column">
+          <div class="board-column-header header-pending">
+            <span class="board-column-title">Pending</span>
+            <span class="board-badge" id="boardCountPending">0</span>
+          </div>
+          <div class="board-cards-container" id="boardColPending"></div>
+        </div>
+
+        <!-- Column 2: Assigned -->
+        <div class="board-column">
+          <div class="board-column-header header-assigned">
+            <span class="board-column-title">Assigned</span>
+            <span class="board-badge" id="boardCountAssigned">0</span>
+          </div>
+          <div class="board-cards-container" id="boardColAssigned"></div>
+        </div>
+
+        <!-- Column 3: In Transit -->
+        <div class="board-column">
+          <div class="board-column-header header-intransit">
+            <span class="board-column-title">In Transit</span>
+            <span class="board-badge" id="boardCountInTransit">0</span>
+          </div>
+          <div class="board-cards-container" id="boardColInTransit"></div>
+        </div>
+
+        <!-- Column 4: Delivered -->
+        <div class="board-column">
+          <div class="board-column-header header-delivered">
+            <span class="board-column-title">Delivered</span>
+            <span class="board-badge" id="boardCountDelivered">0</span>
+          </div>
+          <div class="board-cards-container" id="boardColDelivered"></div>
+        </div>
+
+        <!-- Column 5: Cancelled -->
+        <div class="board-column">
+          <div class="board-column-header header-cancelled">
+            <span class="board-column-title">Cancelled</span>
+            <span class="board-badge" id="boardCountCancelled">0</span>
+          </div>
+          <div class="board-cards-container" id="boardColCancelled"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: VEHICLES TABLE -->
     <section id="viewVehicles" class="view-panel" style="display: none;">
       <div class="table-card">
         <div class="table-header-bar">
           <div>
             <h3>Vehicle Fleet Directory</h3>
-            <p class="text-muted text-sm">Manage fleet assets, load capacities, and active assignment states</p>
+            <p class="text-muted text-sm">Commercial vehicles, capacity ratings, and active assignment states</p>
           </div>
           <button class="btn btn-primary btn-sm" onclick="app.openNewVehicleModal()">+ Add New Vehicle</button>
         </div>
@@ -319,28 +386,29 @@
                 <th>Status</th>
                 <th>Active Delivery</th>
                 <th>Status Control</th>
+                <th class="text-right">Manage</th>
               </tr>
             </thead>
             <tbody id="vehiclesTableBody">
-              <!-- Dynamically populated -->
+              <!-- Populated dynamically -->
             </tbody>
           </table>
         </div>
         <div id="vehiclesEmptyState" class="empty-state" style="display: none;">
           <div class="empty-icon">🚚</div>
           <h3>No Vehicles Registered</h3>
-          <p class="text-muted">Add your first fleet vehicle or click "Seed Demo Data" above.</p>
+          <p class="text-muted">Register fleet vehicles or click "Seed Demo Data" above.</p>
         </div>
       </div>
     </section>
 
-    <!-- VIEW 3: DRIVERS TABLE -->
+    <!-- VIEW 4: DRIVERS TABLE -->
     <section id="viewDrivers" class="view-panel" style="display: none;">
       <div class="table-card">
         <div class="table-header-bar">
           <div>
             <h3>Driver Personnel Roster</h3>
-            <p class="text-muted text-sm">Monitor driver availability, contact channels, and dispatch assignments</p>
+            <p class="text-muted text-sm">Driver roster, direct phone contacts, and active assignments</p>
           </div>
           <button class="btn btn-primary btn-sm" onclick="app.openNewDriverModal()">+ Add New Driver</button>
         </div>
@@ -354,10 +422,11 @@
                 <th>Availability</th>
                 <th>Active Delivery</th>
                 <th>Availability Control</th>
+                <th class="text-right">Manage</th>
               </tr>
             </thead>
             <tbody id="driversTableBody">
-              <!-- Dynamically populated -->
+              <!-- Populated dynamically -->
             </tbody>
           </table>
         </div>
@@ -414,17 +483,18 @@
     </div>
   </div>
 
-  <!-- MODAL 2: NEW DELIVERY -->
+  <!-- MODAL 2: CREATE / EDIT DELIVERY -->
   <div id="modalNewDelivery" class="modal-overlay" aria-hidden="true">
     <div class="modal-box" role="dialog" aria-labelledby="modalNewDeliveryTitle">
       <div class="modal-header">
         <div>
           <h3 id="modalNewDeliveryTitle" class="modal-title">Create Delivery Request</h3>
-          <p class="modal-subtitle">Submit a new delivery destination for dispatch scheduling</p>
+          <p class="modal-subtitle" id="modalNewDeliverySubtitle">Submit a new delivery destination for dispatch scheduling</p>
         </div>
         <button class="modal-close" onclick="app.closeModal('modalNewDelivery')">&times;</button>
       </div>
       <form id="formNewDelivery">
+        <input type="hidden" id="deliveryEditId" />
         <div class="form-group">
           <label for="deliveryPickup">Pickup Address <span class="required">*</span></label>
           <input type="text" id="deliveryPickup" class="form-input" placeholder="e.g. Warehouse 14, 500 Pier Rd" required />
@@ -458,23 +528,24 @@
 
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalNewDelivery')">Cancel</button>
-          <button type="submit" class="btn btn-primary">Submit Delivery</button>
+          <button type="submit" id="btnSubmitDelivery" class="btn btn-primary">Save Delivery</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- MODAL 3: NEW VEHICLE -->
+  <!-- MODAL 3: CREATE / EDIT VEHICLE -->
   <div id="modalNewVehicle" class="modal-overlay" aria-hidden="true">
     <div class="modal-box" role="dialog" aria-labelledby="modalNewVehicleTitle">
       <div class="modal-header">
         <div>
           <h3 id="modalNewVehicleTitle" class="modal-title">Register Vehicle</h3>
-          <p class="modal-subtitle">Add a new commercial vehicle to the FleetWise roster</p>
+          <p class="modal-subtitle" id="modalNewVehicleSubtitle">Add a commercial vehicle to the fleet</p>
         </div>
         <button class="modal-close" onclick="app.closeModal('modalNewVehicle')">&times;</button>
       </div>
       <form id="formNewVehicle">
+        <input type="hidden" id="vehicleEditId" />
         <div class="form-group">
           <label for="vehicleReg">Registration Number <span class="required">*</span></label>
           <input type="text" id="vehicleReg" class="form-input" placeholder="e.g. NYC-8492" required />
@@ -492,7 +563,7 @@
             <input type="number" id="vehicleCapacity" class="form-input" min="1" step="0.1" placeholder="e.g. 1500" required />
           </div>
           <div class="form-group col-6">
-            <label for="vehicleInitialStatus">Initial Status</label>
+            <label for="vehicleInitialStatus">Status</label>
             <select id="vehicleInitialStatus" class="form-input">
               <option value="available">Available</option>
               <option value="maintenance">Maintenance</option>
@@ -503,23 +574,24 @@
 
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalNewVehicle')">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Vehicle</button>
+          <button type="submit" id="btnSubmitVehicle" class="btn btn-primary">Save Vehicle</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- MODAL 4: NEW DRIVER -->
+  <!-- MODAL 4: CREATE / EDIT DRIVER -->
   <div id="modalNewDriver" class="modal-overlay" aria-hidden="true">
     <div class="modal-box" role="dialog" aria-labelledby="modalNewDriverTitle">
       <div class="modal-header">
         <div>
           <h3 id="modalNewDriverTitle" class="modal-title">Register Driver</h3>
-          <p class="modal-subtitle">Add a licensed driver to the active dispatch team</p>
+          <p class="modal-subtitle" id="modalNewDriverSubtitle">Add a licensed driver to the active dispatch team</p>
         </div>
         <button class="modal-close" onclick="app.closeModal('modalNewDriver')">&times;</button>
       </div>
       <form id="formNewDriver">
+        <input type="hidden" id="driverEditId" />
         <div class="form-group">
           <label for="driverName">Full Name <span class="required">*</span></label>
           <input type="text" id="driverName" class="form-input" placeholder="e.g. Alexander Vance" required />
@@ -532,7 +604,7 @@
         </div>
 
         <div class="form-group">
-          <label for="driverInitialStatus">Initial Availability</label>
+          <label for="driverInitialStatus">Availability Status</label>
           <select id="driverInitialStatus" class="form-input">
             <option value="available">Available</option>
             <option value="unavailable">Unavailable</option>
@@ -541,7 +613,7 @@
 
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalNewDriver')">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Driver</button>
+          <button type="submit" id="btnSubmitDriver" class="btn btn-primary">Save Driver</button>
         </div>
       </form>
     </div>
@@ -571,9 +643,9 @@
     <div class="footer-inner">
       <span>FleetWise © 2026 — Reliable Fleet & Delivery Assignment System</span>
       <span class="footer-links">
-        <span>SQLite ACID Enforced</span>
+        <span>SQLite Immediate Locking</span>
         <span class="sub-sep">•</span>
-        <span>Zero Double-Booking Guarantee</span>
+        <span>Partial Unique Index Guard</span>
       </span>
     </div>
   </footer>
@@ -581,4 +653,3 @@
   <script src="app.js"></script>
 </body>
 </html>
-
