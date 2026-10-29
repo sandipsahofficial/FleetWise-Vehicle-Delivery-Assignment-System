@@ -48,4 +48,28 @@ router.patch('/drivers/:id/status', (req, res, next) => {
   }
 });
 
+// PUT /drivers/:id - update driver
+router.put('/drivers/:id', (req, res, next) => {
+  try {
+    const driver = driverService.updateDriver(req.params.id, req.body);
+    res.status(200).json(driver);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /drivers/:id - delete driver (if safe)
+router.delete('/drivers/:id', (req, res, next) => {
+  try {
+    driverService.deleteDriver(req.params.id);
+    res.status(200).json({
+      message: `Driver '${req.params.id}' successfully deleted`,
+      id: req.params.id
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
+

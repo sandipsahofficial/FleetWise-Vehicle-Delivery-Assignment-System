@@ -209,3 +209,4 @@ Testing was performed using the built-in Node.js test runner (`node:test`) again
 3. **Multi-Stop & Batch Deliveries**:
    - *Current State*: Enforces strict 1-to-1 active assignment per delivery request.
    - *Future Enhancement*: Support multi-drop routes where one vehicle/driver pair handles sequential deliveries along an optimized circuit while tracking total capacity.
+

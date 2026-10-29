@@ -111,6 +111,38 @@ class VehicleRepository {
     return Boolean(stmt.get(vehicleId));
   }
 
+  hasAnyAssignment(vehicleId) {
+    const db = getDb();
+    const stmt = db.prepare(`
+      SELECT 1 FROM assignments WHERE vehicle_id = ? LIMIT 1
+    `);
+    return Boolean(stmt.get(vehicleId));
+  }
+
+  update(id, updates) {
+    const db = getDb();
+    const stmt = db.prepare(`
+      UPDATE vehicles
+      SET registration_number = ?, type = ?, capacity = ?, status = ?, updated_at = DATETIME('now')
+      WHERE id = ?
+    `);
+    stmt.run(
+      updates.registration_number,
+      updates.type,
+      updates.capacity,
+      updates.status,
+      id
+    );
+    return this.findById(id);
+  }
+
+  delete(id) {
+    const db = getDb();
+    const stmt = db.prepare(`DELETE FROM vehicles WHERE id = ?`);
+    const info = stmt.run(id);
+    return info.changes > 0;
+  }
+
   updateStatus(id, status) {
     const db = getDb();
     const stmt = db.prepare(`
@@ -152,3 +184,4 @@ class VehicleRepository {
 }
 
 module.exports = new VehicleRepository();
+

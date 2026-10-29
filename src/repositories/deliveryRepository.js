@@ -138,6 +138,47 @@ class DeliveryRepository {
     return this.findById(id);
   }
 
+  hasActiveAssignment(deliveryId) {
+    const db = getDb();
+    const stmt = db.prepare(`
+      SELECT 1 FROM assignments WHERE delivery_id = ? AND is_active = 1 LIMIT 1
+    `);
+    return Boolean(stmt.get(deliveryId));
+  }
+
+  hasAnyAssignment(deliveryId) {
+    const db = getDb();
+    const stmt = db.prepare(`
+      SELECT 1 FROM assignments WHERE delivery_id = ? LIMIT 1
+    `);
+    return Boolean(stmt.get(deliveryId));
+  }
+
+  update(id, updates) {
+    const db = getDb();
+    const stmt = db.prepare(`
+      UPDATE deliveries
+      SET pickup_address = ?, dropoff_address = ?, scheduled_time = ?, priority = ?, notes = ?, updated_at = DATETIME('now')
+      WHERE id = ?
+    `);
+    stmt.run(
+      updates.pickup_address,
+      updates.dropoff_address,
+      updates.scheduled_time,
+      updates.priority,
+      updates.notes || null,
+      id
+    );
+    return this.findById(id);
+  }
+
+  delete(id) {
+    const db = getDb();
+    const stmt = db.prepare(`DELETE FROM deliveries WHERE id = ?`);
+    const info = stmt.run(id);
+    return info.changes > 0;
+  }
+
   _formatDelivery(row) {
     const delivery = {
       id: row.id,
@@ -178,3 +219,4 @@ class DeliveryRepository {
 }
 
 module.exports = new DeliveryRepository();
+

@@ -38,3 +38,4 @@ module.exports = {
   ConflictError,
   UnprocessableEntityError
 };
+

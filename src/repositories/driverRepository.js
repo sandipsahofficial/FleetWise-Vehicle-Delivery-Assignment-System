@@ -104,6 +104,37 @@ class DriverRepository {
     return Boolean(stmt.get(driverId));
   }
 
+  hasAnyAssignment(driverId) {
+    const db = getDb();
+    const stmt = db.prepare(`
+      SELECT 1 FROM assignments WHERE driver_id = ? LIMIT 1
+    `);
+    return Boolean(stmt.get(driverId));
+  }
+
+  update(id, updates) {
+    const db = getDb();
+    const stmt = db.prepare(`
+      UPDATE drivers
+      SET name = ?, phone = ?, availability_status = ?, updated_at = DATETIME('now')
+      WHERE id = ?
+    `);
+    stmt.run(
+      updates.name,
+      updates.phone,
+      updates.availability_status,
+      id
+    );
+    return this.findById(id);
+  }
+
+  delete(id) {
+    const db = getDb();
+    const stmt = db.prepare(`DELETE FROM drivers WHERE id = ?`);
+    const info = stmt.run(id);
+    return info.changes > 0;
+  }
+
   updateStatus(id, status) {
     const db = getDb();
     const stmt = db.prepare(`
@@ -144,3 +175,4 @@ class DriverRepository {
 }
 
 module.exports = new DriverRepository();
+

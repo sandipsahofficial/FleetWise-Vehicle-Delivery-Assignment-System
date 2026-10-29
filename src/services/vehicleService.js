@@ -89,6 +89,77 @@ class VehicleService {
 
     return vehicleRepository.updateStatus(id, targetStatus);
   }
+
+  updateVehicle(id, data) {
+    const existing = this.getVehicleById(id);
+    const { registration_number, type, capacity, status } = data || {};
+
+    const cleanReg = registration_number !== undefined
+      ? registration_number.trim().toUpperCase()
+      : existing.registration_number;
+
+    if (!cleanReg) {
+      throw new BadRequestError('Registration number cannot be empty');
+    }
+
+    if (cleanReg !== existing.registration_number) {
+      const regConflict = vehicleRepository.findByRegistration(cleanReg);
+      if (regConflict && regConflict.id !== id) {
+        throw new ConflictError(`Vehicle with registration number '${cleanReg}' already exists`);
+      }
+    }
+
+    const cleanType = type !== undefined ? type.trim() : existing.type;
+    if (!cleanType) {
+      throw new BadRequestError('Vehicle type cannot be empty');
+    }
+
+    const numCapacity = capacity !== undefined ? Number(capacity) : existing.capacity;
+    if (isNaN(numCapacity) || numCapacity <= 0) {
+      throw new BadRequestError('Capacity must be a positive number');
+    }
+
+    const targetStatus = status !== undefined ? status.toLowerCase().trim() : existing.status;
+    if (!VALID_STATUSES.includes(targetStatus)) {
+      throw new BadRequestError(`Invalid vehicle status. Allowed: ${VALID_STATUSES.join(', ')}`);
+    }
+
+    const hasActive = vehicleRepository.hasActiveAssignment(id);
+    if (hasActive) {
+      if (targetStatus === 'maintenance' || targetStatus === 'inactive') {
+        throw new ConflictError(
+          `Cannot set vehicle '${id}' to '${targetStatus}' while an active assignment exists`
+        );
+      }
+      if (cleanReg !== existing.registration_number) {
+        throw new ConflictError(
+          `Cannot modify registration number of vehicle '${id}' while an active assignment exists`
+        );
+      }
+    }
+
+    return vehicleRepository.update(id, {
+      registration_number: cleanReg,
+      type: cleanType,
+      capacity: numCapacity,
+      status: targetStatus
+    });
+  }
+
+  deleteVehicle(id) {
+    this.getVehicleById(id); // Throws NotFoundError if missing
+
+    if (vehicleRepository.hasActiveAssignment(id)) {
+      throw new ConflictError(`Cannot delete vehicle '${id}' while an active assignment exists`);
+    }
+
+    if (vehicleRepository.hasAnyAssignment(id)) {
+      throw new ConflictError(`Cannot delete vehicle '${id}' with existing assignment records. Deletion would compromise historical dispatch logs.`);
+    }
+
+    return vehicleRepository.delete(id);
+  }
 }
 
 module.exports = new VehicleService();
+

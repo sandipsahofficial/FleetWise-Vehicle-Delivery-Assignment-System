@@ -30,6 +30,12 @@ class DriverService {
 
     const driverId = id && id.trim() ? id.trim() : `DRV-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
+    // Enforce unique driver ID
+    const existingById = driverRepository.findById(driverId);
+    if (existingById) {
+      throw new ConflictError(`Driver with ID '${driverId}' already exists`);
+    }
+
     const newDriver = {
       id: driverId,
       name: name.trim(),
@@ -83,6 +89,71 @@ class DriverService {
 
     return driverRepository.updateStatus(id, targetStatus);
   }
+
+  updateDriver(id, data) {
+    const existing = this.getDriverById(id);
+    const { name, phone, availability_status } = data || {};
+
+    const cleanName = name !== undefined ? name.trim() : existing.name;
+    if (!cleanName) {
+      throw new BadRequestError('Driver name cannot be empty');
+    }
+
+    const cleanPhone = phone !== undefined ? phone.trim() : existing.phone;
+    if (!cleanPhone) {
+      throw new BadRequestError('Phone number cannot be empty');
+    }
+
+    if (cleanPhone !== existing.phone) {
+      const phoneConflict = driverRepository.findByPhone(cleanPhone);
+      if (phoneConflict && phoneConflict.id !== id) {
+        throw new ConflictError(`Driver with phone number '${cleanPhone}' already exists`);
+      }
+    }
+
+    const targetStatus = availability_status !== undefined
+      ? availability_status.toLowerCase().trim()
+      : existing.availability_status;
+
+    if (!VALID_STATUSES.includes(targetStatus)) {
+      throw new BadRequestError(`Invalid availability status. Allowed: ${VALID_STATUSES.join(', ')}`);
+    }
+
+    const hasActive = driverRepository.hasActiveAssignment(id);
+    if (hasActive) {
+      if (targetStatus === 'unavailable') {
+        throw new ConflictError(
+          `Cannot set driver '${id}' to unavailable while an active assignment exists`
+        );
+      }
+      if (cleanPhone !== existing.phone) {
+        throw new ConflictError(
+          `Cannot modify phone number of driver '${id}' while an active assignment exists`
+        );
+      }
+    }
+
+    return driverRepository.update(id, {
+      name: cleanName,
+      phone: cleanPhone,
+      availability_status: targetStatus
+    });
+  }
+
+  deleteDriver(id) {
+    this.getDriverById(id); // Throws NotFoundError if missing
+
+    if (driverRepository.hasActiveAssignment(id)) {
+      throw new ConflictError(`Cannot delete driver '${id}' while an active assignment exists`);
+    }
+
+    if (driverRepository.hasAnyAssignment(id)) {
+      throw new ConflictError(`Cannot delete driver '${id}' with existing assignment records. Deletion would compromise historical dispatch logs.`);
+    }
+
+    return driverRepository.delete(id);
+  }
 }
 
 module.exports = new DriverService();
+

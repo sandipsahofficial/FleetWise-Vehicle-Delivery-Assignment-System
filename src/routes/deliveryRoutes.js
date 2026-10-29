@@ -79,4 +79,28 @@ router.patch('/deliveries/:id/status', (req, res, next) => {
   }
 });
 
+// PUT /deliveries/:id - update pending delivery
+router.put('/deliveries/:id', (req, res, next) => {
+  try {
+    const delivery = deliveryService.updateDelivery(req.params.id, req.body);
+    res.status(200).json(delivery);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /deliveries/:id - delete delivery (if safe)
+router.delete('/deliveries/:id', (req, res, next) => {
+  try {
+    deliveryService.deleteDelivery(req.params.id);
+    res.status(200).json({
+      message: `Delivery '${req.params.id}' successfully deleted`,
+      id: req.params.id
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
+

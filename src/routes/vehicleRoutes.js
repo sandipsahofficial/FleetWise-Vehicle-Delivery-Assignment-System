@@ -49,4 +49,28 @@ router.patch('/vehicles/:id/status', (req, res, next) => {
   }
 });
 
+// PUT /vehicles/:id - update vehicle
+router.put('/vehicles/:id', (req, res, next) => {
+  try {
+    const vehicle = vehicleService.updateVehicle(req.params.id, req.body);
+    res.status(200).json(vehicle);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /vehicles/:id - delete vehicle (if safe)
+router.delete('/vehicles/:id', (req, res, next) => {
+  try {
+    vehicleService.deleteVehicle(req.params.id);
+    res.status(200).json({
+      message: `Vehicle '${req.params.id}' successfully deleted`,
+      id: req.params.id
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
+

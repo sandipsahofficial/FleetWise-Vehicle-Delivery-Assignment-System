@@ -117,3 +117,4 @@ test('Phase 2 - Vehicle Management API', async (t) => {
     assert.equal(res.status, 400);
   });
 });
+

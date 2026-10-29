@@ -183,6 +183,63 @@ class DeliveryService {
       throw err;
     }
   }
+
+  updateDelivery(id, data) {
+    const existing = this.getDeliveryById(id);
+
+    // Business rule: Reject unsafe edits to active deliveries in progress or terminal states
+    if (existing.status === 'assigned' || existing.status === 'in_transit') {
+      throw new ConflictError(
+        `Cannot edit core route details of active delivery '${id}' while status is '${existing.status}'`
+      );
+    }
+    if (existing.status === 'delivered' || existing.status === 'cancelled') {
+      throw new ConflictError(
+        `Cannot edit terminal delivery '${id}' (status: '${existing.status}')`
+      );
+    }
+
+    const { pickup_address, dropoff_address, scheduled_time, priority, notes } = data || {};
+
+    const cleanPickup = pickup_address !== undefined ? pickup_address.trim() : existing.pickup_address;
+    if (!cleanPickup) throw new BadRequestError('Pickup address cannot be empty');
+
+    const cleanDropoff = dropoff_address !== undefined ? dropoff_address.trim() : existing.dropoff_address;
+    if (!cleanDropoff) throw new BadRequestError('Dropoff address cannot be empty');
+
+    const cleanTime = scheduled_time !== undefined ? scheduled_time.trim() : existing.scheduled_time;
+    if (!cleanTime) throw new BadRequestError('Scheduled time cannot be empty');
+
+    const cleanPriority = priority !== undefined ? priority.toLowerCase().trim() : existing.priority;
+    if (!VALID_PRIORITIES.includes(cleanPriority)) {
+      throw new BadRequestError(`Invalid priority. Allowed: ${VALID_PRIORITIES.join(', ')}`);
+    }
+
+    const cleanNotes = notes !== undefined ? (notes ? notes.trim() : null) : existing.notes;
+
+    return deliveryRepository.update(id, {
+      pickup_address: cleanPickup,
+      dropoff_address: cleanDropoff,
+      scheduled_time: cleanTime,
+      priority: cleanPriority,
+      notes: cleanNotes
+    });
+  }
+
+  deleteDelivery(id) {
+    const existing = this.getDeliveryById(id);
+
+    if (existing.status === 'assigned' || existing.status === 'in_transit' || deliveryRepository.hasActiveAssignment(id)) {
+      throw new ConflictError(`Cannot delete delivery '${id}' while an active assignment exists`);
+    }
+
+    if (deliveryRepository.hasAnyAssignment(id)) {
+      throw new ConflictError(`Cannot delete delivery '${id}' with existing assignment records. Deletion would compromise historical dispatch logs.`);
+    }
+
+    return deliveryRepository.delete(id);
+  }
 }
 
 module.exports = new DeliveryService();
+

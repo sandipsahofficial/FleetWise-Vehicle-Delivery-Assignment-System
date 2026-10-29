@@ -831,3 +831,4 @@ document.addEventListener('DOMContentLoaded', () => {
   window.app = app;
   app.init();
 });
+
