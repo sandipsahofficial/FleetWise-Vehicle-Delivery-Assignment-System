@@ -4,6 +4,7 @@ const path = require('node:path');
 const healthRoutes = require('./routes/healthRoutes');
 const vehicleRoutes = require('./routes/vehicleRoutes');
 const driverRoutes = require('./routes/driverRoutes');
+const deliveryRoutes = require('./routes/deliveryRoutes');
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', healthRoutes);
 app.use('/', vehicleRoutes);
 app.use('/', driverRoutes);
+app.use('/', deliveryRoutes);
 
 // 404 handler for unknown API routes
 app.use('/api', (req, res) => {
