@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('node:path');
 const healthRoutes = require('./routes/healthRoutes');
+const vehicleRoutes = require('./routes/vehicleRoutes');
+const driverRoutes = require('./routes/driverRoutes');
 
 const app = express();
 
@@ -15,6 +17,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Mount routes
 app.use('/', healthRoutes);
+app.use('/', vehicleRoutes);
+app.use('/', driverRoutes);
 
 // 404 handler for unknown API routes
 app.use('/api', (req, res) => {
