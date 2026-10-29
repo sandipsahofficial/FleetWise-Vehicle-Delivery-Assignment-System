@@ -138,15 +138,21 @@ npm test
 | `GET` | `/vehicles` | List all vehicles with active delivery details | 200 |
 | `POST` | `/vehicles` | Register a new fleet vehicle | 201, 400, 409 |
 | `GET` | `/vehicles/:id` | Retrieve single vehicle details | 200, 404 |
+| `PUT` | `/vehicles/:id` | Update vehicle details (safeguards active assets) | 200, 400, 409 |
 | `PATCH`| `/vehicles/:id/status` | Update vehicle status (enforcing maintenance lock) | 200, 400, 409 |
+| `DELETE`| `/vehicles/:id` | Safe deletion of vehicle (rejects active/history) | 200, 404, 409 |
 | `GET` | `/drivers` | List all drivers with active delivery details | 200 |
-| `POST` | `/drivers` | Register a new driver | 201, 400, 409 |
+| `POST` | `/drivers` | Register a new driver (enforces unique ID & phone) | 201, 400, 409 |
 | `GET` | `/drivers/:id` | Retrieve single driver details | 200, 404 |
+| `PUT` | `/drivers/:id` | Update driver details (safeguards active personnel) | 200, 400, 409 |
 | `PATCH`| `/drivers/:id/status` | Update driver availability status | 200, 400, 409 |
+| `DELETE`| `/drivers/:id` | Safe deletion of driver (rejects active/history) | 200, 404, 409 |
 | `GET` | `/deliveries` | List deliveries (supports `search`, `status`, `priority`) | 200 |
 | `POST` | `/deliveries` | Create a pending delivery request | 201, 400 |
 | `GET` | `/deliveries/:id` | Retrieve delivery details with assigned resources | 200, 404 |
+| `PUT` | `/deliveries/:id` | Update pending delivery details (rejects active) | 200, 400, 409 |
 | `GET` | `/deliveries/:id/assignments` | Retrieve historical assignment audit logs | 200, 404 |
+| `DELETE`| `/deliveries/:id` | Safe deletion of delivery (rejects active/history) | 200, 404, 409 |
 | `POST` | `/deliveries/:id/assign` | Atomically assign vehicle & driver to delivery | 200, 400, 404, 409 |
 | `PATCH`| `/deliveries/:id/status` | Perform validated lifecycle transition | 200, 400, 404, 409 |
 
