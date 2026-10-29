@@ -126,7 +126,17 @@ function setDb(db) {
   dbInstance = db;
 }
 
+function closeDb() {
+  if (dbInstance) {
+    try {
+      dbInstance.close();
+    } catch (_) {}
+    dbInstance = null;
+  }
+}
+
 function resetDbForTesting() {
+  closeDb();
   const db = initDatabase(':memory:');
   dbInstance = db;
   return db;
@@ -136,6 +146,7 @@ module.exports = {
   initDatabase,
   getDb,
   setDb,
+  closeDb,
   resetDbForTesting,
 };
 
