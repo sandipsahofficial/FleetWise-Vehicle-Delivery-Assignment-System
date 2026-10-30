@@ -23,3 +23,4 @@ const locationUpdateSchema = {
 module.exports = {
   locationUpdateSchema
 };
+

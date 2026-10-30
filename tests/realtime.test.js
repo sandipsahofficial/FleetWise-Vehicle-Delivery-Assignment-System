@@ -470,4 +470,78 @@ test('Phase 2 — Real-Time Core: WebSockets, Room Isolation, Post-Commit Events
     const history = locationRepository.getDriverHistory('DRV-101', 200);
     assert.ok(history.length <= 100);
   });
+
+  // -------------------------------------------------------------
+  // 6. Token Expiry & Active Socket Disconnect
+  // -------------------------------------------------------------
+  await t.test('6. Expired access token disconnects already-open socket', async () => {
+    const shortToken = jwt.sign(
+      { sub: 'user_short', username: 'short_user', role: 'admin' },
+      config.jwt.secret,
+      { expiresIn: '1s' }
+    );
+    const socket = connectClient(shortToken);
+    await new Promise((res) => socket.on('connect', res));
+    assert.ok(socket.connected);
+
+    // Wait for auto-disconnect triggered by expiry timer
+    await new Promise((resolve) => {
+      socket.on('disconnect', () => {
+        resolve();
+      });
+      setTimeout(() => {
+        socket.disconnect();
+        resolve();
+      }, 2000);
+    });
+    assert.ok(!socket.connected);
+  });
+
+  // -------------------------------------------------------------
+  // 7. Socket Location Event Rate Limiting
+  // -------------------------------------------------------------
+  await t.test('7. Socket location updates are rate-limited on rapid calls', async () => {
+    const driverASocket = connectClient(driverATokens.accessToken);
+    await new Promise((res) => driverASocket.on('connect', res));
+
+    // Send 1st update
+    const ack1 = await new Promise((res) => {
+      driverASocket.emit('driver:location_update', { lat: 40.71, lng: -74.01 }, res);
+    });
+    assert.ok(ack1.success);
+
+    // Immediately send 2nd update (< 200ms throttle)
+    const ack2 = await new Promise((res) => {
+      driverASocket.emit('driver:location_update', { lat: 40.71, lng: -74.01 }, res);
+    });
+    assert.ok(ack2.error);
+    assert.ok(ack2.error.includes('Rate limit'));
+
+    driverASocket.disconnect();
+  });
+
+  // -------------------------------------------------------------
+  // 8. /api/seed Admin-Only and Production Lockout
+  // -------------------------------------------------------------
+  await t.test('8. /api/seed is admin-only and strictly disabled in production', async () => {
+    // Driver cannot seed (403)
+    const driverRes = await fetch(`${baseUrl}/api/seed`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${driverATokens.accessToken}` }
+    });
+    assert.equal(driverRes.status, 403);
+
+    // In production, even admin cannot seed (403)
+    const prevEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const prodRes = await fetch(`${baseUrl}/api/seed`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${adminTokens.accessToken}` }
+      });
+      assert.equal(prodRes.status, 403);
+    } finally {
+      process.env.NODE_ENV = prevEnv;
+    }
+  });
 });

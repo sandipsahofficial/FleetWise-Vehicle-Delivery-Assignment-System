@@ -252,6 +252,18 @@
             <span class="role-pill" id="headerUserRole">admin</span>
           </div>
 
+          <!-- Socket Connection Status (Phase 2 Real-Time) -->
+          <div id="socketStatusBadge" class="connection-pill status-disconnected" title="Real-time WebSockets status">
+            <span class="status-indicator-dot"></span>
+            <span id="socketStatusText">Offline</span>
+          </div>
+
+          <!-- User header pill -->
+          <div class="header-user-badge" id="headerUserBadge">
+            <span id="headerUserName">admin</span>
+            <span class="role-pill" id="headerUserRole">admin</span>
+          </div>
+
           <button id="btnSeedDemo" class="btn btn-secondary btn-sm" title="Seed realistic test fleet data">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
@@ -381,6 +393,30 @@
           </div>
         </section>
 
+        <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
+          </div>
+        </section>
+
         <!-- ── Delivery Status Distribution Bar ──────────── -->
         <div class="dist-bar-card">
           <div class="dist-bar-header">
@@ -484,6 +520,30 @@
                 <button class="btn btn-ghost btn-sm" id="btnDelNext" onclick="app.nextPage('del')">Next →</button>
               </div>
             </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
           </div>
         </section>
 
@@ -592,6 +652,30 @@
         </section>
 
         <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
              VIEW 4: DRIVERS TABLE
         ════════════════════════════════════════════════ -->
         <section id="viewDrivers" class="view-panel" style="display:none;" role="tabpanel">
@@ -624,6 +708,30 @@
               <h3>No Drivers Registered</h3>
               <p class="text-muted">Register drivers or click "Seed Demo" to load initial personnel.</p>
             </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
           </div>
         </section>
 
@@ -667,6 +775,30 @@
               <h3>Priority Queue Clear</h3>
               <p class="text-muted">No pending deliveries waiting for allocation.</p>
             </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
           </div>
         </section>
 
@@ -733,6 +865,30 @@
         </section>
 
         <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
              VIEW 7: AUDIT TRAIL
         ════════════════════════════════════════════════ -->
         <section id="viewAudit" class="view-panel" style="display:none;" role="tabpanel">
@@ -768,6 +924,30 @@
                 <tbody id="auditTableBody"></tbody>
               </table>
             </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
           </div>
         </section>
 

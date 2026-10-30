@@ -6,6 +6,7 @@ const locationRepository = require('../repositories/locationRepository');
 const { locationUpdateSchema } = require('../schemas/locationSchemas');
 
 let ioInstance = null;
+const locationRateLimits = new Map(); // driverId -> Array<timestamp>
 
 function initSocket(httpServer) {
   const io = new Server(httpServer, {
@@ -30,7 +31,8 @@ function initSocket(httpServer) {
         id: decoded.sub,
         username: decoded.username,
         role: decoded.role === 'fleet_manager' ? 'admin' : decoded.role,
-        driver_id: decoded.driver_id || null
+        driver_id: decoded.driver_id || null,
+        exp: decoded.exp
       };
       next();
     } catch (err) {
@@ -39,8 +41,24 @@ function initSocket(httpServer) {
   });
 
   io.on('connection', (socket) => {
-    const { role, username, driver_id } = socket.user;
+    const { role, username, driver_id, exp } = socket.user;
     logger.info({ username, role }, 'Socket client connected');
+
+    // Auto-disconnect when access token expires
+    let expiryTimer = null;
+    if (exp) {
+      const msUntilExpiry = (exp * 1000) - Date.now();
+      if (msUntilExpiry <= 0) {
+        socket.emit('token_expired', { message: 'Access token expired' });
+        socket.disconnect(true);
+        return;
+      }
+      expiryTimer = setTimeout(() => {
+        logger.info({ username }, 'Socket access token expired; disconnecting client');
+        socket.emit('token_expired', { message: 'Access token expired' });
+        socket.disconnect(true);
+      }, msUntilExpiry);
+    }
 
     // Role-based room joining
     if (role === 'admin' || role === 'dispatcher') {
@@ -54,6 +72,13 @@ function initSocket(httpServer) {
     // Socket Driver Location Update Event
     socket.on('driver:location_update', (payload, callback) => {
       try {
+        if (socket.user.exp && Date.now() >= socket.user.exp * 1000) {
+          if (callback) callback({ error: 'Access token expired' });
+          socket.emit('token_expired', { message: 'Access token expired' });
+          socket.disconnect(true);
+          return;
+        }
+
         if (socket.user.role !== 'driver' && socket.user.role !== 'admin') {
           if (callback) callback({ error: 'Only drivers can publish location updates' });
           return;
@@ -69,6 +94,21 @@ function initSocket(httpServer) {
           if (callback) callback({ error: 'Missing associated driver ID' });
           return;
         }
+
+        // Rate limiting: max 60 updates/min and min 200ms interval
+        const now = Date.now();
+        const timestamps = locationRateLimits.get(targetDriverId) || [];
+        const recent = timestamps.filter((ts) => now - ts < 60000);
+        if (recent.length >= 60) {
+          if (callback) callback({ error: 'Rate limit exceeded: maximum 60 location updates per minute' });
+          return;
+        }
+        if (recent.length > 0 && now - recent[recent.length - 1] < 200) {
+          if (callback) callback({ error: 'Rate limit exceeded: updates throttled to at most once per 200ms' });
+          return;
+        }
+        recent.push(now);
+        locationRateLimits.set(targetDriverId, recent);
 
         // Validate coordinates with Zod
         const parsed = locationUpdateSchema.body.parse(payload);
@@ -92,6 +132,7 @@ function initSocket(httpServer) {
     });
 
     socket.on('disconnect', () => {
+      if (expiryTimer) clearTimeout(expiryTimer);
       logger.info({ username }, 'Socket client disconnected');
     });
   });

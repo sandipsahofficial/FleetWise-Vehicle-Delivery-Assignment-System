@@ -3,6 +3,10 @@ const dashboardService = require('../services/dashboardService');
 const auditService = require('../services/auditService');
 const seedService = require('../services/seedService');
 const { paginate } = require('../utils/pagination');
+const { authenticate } = require('../middleware/auth');
+const { requireRole } = require('../middleware/rbac');
+const { ForbiddenError } = require('../utils/errors');
+const config = require('../config');
 
 const router = express.Router();
 
@@ -51,13 +55,21 @@ router.get('/audit-logs', (req, res, next) => {
   }
 });
 
-router.post('/seed', (req, res, next) => {
-  try {
-    const result = seedService.seedDemoData();
-    res.status(200).json(result);
-  } catch (err) {
-    next(err);
+router.post(
+  '/seed',
+  authenticate(),
+  requireRole(['admin']),
+  (req, res, next) => {
+    try {
+      if (process.env.NODE_ENV === 'production' || config.env === 'production') {
+        throw new ForbiddenError('Database seeding is strictly disabled in production environments.');
+      }
+      const result = seedService.seedDemoData();
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 module.exports = router;
