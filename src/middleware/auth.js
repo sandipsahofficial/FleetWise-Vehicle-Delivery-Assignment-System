@@ -10,12 +10,16 @@ const { UnauthorizedError } = require('../utils/errors');
  */
 function authenticate(options = { optional: false }) {
   return (req, res, next) => {
+    // Check if app has dynamic config override (e.g. from createApp factory in tests)
+    const activeConfig = req.app?.locals?.config || config;
+    const isTestMode = activeConfig.nodeEnv === 'test' && process.env.NODE_ENV === 'test';
+
     const authHeader = req.headers.authorization;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.slice(7).trim();
       try {
-        const decoded = jwt.verify(token, config.jwt.secret);
+        const decoded = jwt.verify(token, activeConfig.jwt.secret);
         req.user = {
           id: decoded.sub,
           username: decoded.username,
@@ -35,8 +39,8 @@ function authenticate(options = { optional: false }) {
       }
     }
 
-    // STRICT IN ALL NON-TEST ENVIRONMENTS: refuse fallback
-    if (process.env.NODE_ENV !== 'test') {
+    // STRICT IN ALL NON-TEST ENVIRONMENTS: refuse fallback, even if legacy X-User-Role header is present
+    if (!isTestMode) {
       if (options.optional) return next();
       return next(new UnauthorizedError('Authentication required. Missing Bearer token.'));
     }
