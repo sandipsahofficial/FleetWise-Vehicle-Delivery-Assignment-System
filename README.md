@@ -37,8 +37,8 @@ FleetWise is a high-reliability, responsive fleet-management and delivery-dispat
 ```
 
 ### Stack Selection & Rationale
-- **Runtime**: **Node.js (v24.21.0)** with **Express (v5.3.0)**. Provides a lightweight, high-performance HTTP server with standard middleware support.
-- **Database**: Built-in **`node:sqlite` (`DatabaseSync`)**. Delivers zero-dependency, local file-based ACID transactions without requiring external C++ build tooling or Python node-gyp compilers.
+- **Runtime**: **Node.js v22.13.0+ or Node.js v24+** with **Express (v5.3.0)**. Provides a lightweight, high-performance HTTP server with standard middleware support.
+- **Database**: Built-in **`node:sqlite` (`DatabaseSync`)**. Delivers zero-dependency, local file-based ACID transactions without requiring external C++ build tooling or Python node-gyp compilers. Requires Node.js 22.13+ or 24+.
 - **Concurrency & Integrity Controls**:
   - `PRAGMA journal_mode = WAL;` and `PRAGMA foreign_keys = ON;`
   - Atomic transactions via `BEGIN IMMEDIATE` ensuring exclusive write locking during assignment allocation.
@@ -121,14 +121,43 @@ The server will start listening at:
 Open `http://localhost:3000` in any web browser to access the application.
 
 ### Running Automated Test Suite
-FleetWise includes 83 automated unit, integration, concurrency, and governance tests across 13 test suites with zero external testing dependencies:
+FleetWise includes 114 automated unit, integration, concurrency, authentication, and governance tests across 16 test suites with zero external testing dependencies:
 ```bash
 npm test
 ```
 
+### Docker & Container Deployment
+Run the production multi-stage container via Docker Compose:
+```bash
+# Build and start the containerized service
+docker compose up -d --build
+
+# View container logs
+docker compose logs -f
+
+# Check container health status
+docker compose ps
+```
+The application will be accessible at `http://localhost:3000` with persistent SQLite volume storage.
+
+### Interactive OpenAPI / Swagger Documentation
+API documentation is automatically hosted directly by the server:
+👉 **`http://localhost:3000/api/docs`**
+
 ---
 
 ## 4. Suggested API Specification
+
+### Authentication & User Management (Phase 1)
+| Method | Endpoint | Description | Status Codes |
+|---|---|---|---|
+| `POST` | `/auth/login` | Authenticate with username and password, return JWT access + refresh tokens | 200, 401, 429 |
+| `POST` | `/auth/register` | Register a new user account (Requires `admin`) | 201, 400, 403, 409 |
+| `POST` | `/auth/refresh` | Rotate single-use SHA-256 refresh token for fresh access token | 200, 400, 401 |
+| `POST` | `/auth/logout` | Revoke refresh token | 200 |
+| `GET` | `/auth/me` | Inspect authenticated user profile & permissions | 200, 401 |
+
+### Operations & Fleet Management
 
 | Method | Endpoint | Description | Status Codes |
 |---|---|---|---|

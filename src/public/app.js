@@ -6,6 +6,8 @@
 const state = {
   currentView: 'deliveries',
   userRole: 'fleet_manager',
+  currentUser: null,
+  accessToken: null, // kept strictly in memory, never in localStorage!
   deliveries: [],
   vehicles: [],
   drivers: [],
@@ -32,11 +34,177 @@ const app = {
   async init() {
     this.bindEvents();
     this.setDefaultScheduledTime();
+
+    // Check if refresh token exists in localStorage to restore session
+    const hasRefreshToken = Boolean(localStorage.getItem('fleetwise_refresh_token'));
+    if (hasRefreshToken) {
+      const refreshed = await this.silentRefresh();
+      if (!refreshed) {
+        this.showLoginOverlay();
+      }
+    } else {
+      this.showLoginOverlay();
+    }
+
     await this.checkHealth();
     await this.refreshAll();
 
     // Auto health check every 15s
     setInterval(() => this.checkHealth(), 15000);
+  },
+
+  showLoginOverlay() {
+    const overlay = document.getElementById('loginOverlay');
+    if (overlay) {
+      overlay.classList.add('open');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+  },
+
+  hideLoginOverlay() {
+    const overlay = document.getElementById('loginOverlay');
+    if (overlay) {
+      overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+  },
+
+  async handleLoginFormSubmit(e) {
+    e.preventDefault();
+    const usernameInput = document.getElementById('loginUsername');
+    const passwordInput = document.getElementById('loginPassword');
+    const errorNotice = document.getElementById('loginErrorNotice');
+    const submitBtn = document.getElementById('btnSubmitLogin');
+
+    if (errorNotice) errorNotice.style.display = 'none';
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      const res = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: usernameInput.value.trim(),
+          password: passwordInput.value
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Login failed. Please check your credentials.');
+      }
+
+      // Keep access token in memory only!
+      state.accessToken = data.accessToken;
+      state.currentUser = data.user;
+      state.userRole = data.user.role;
+
+      // Only refresh token goes in localStorage
+      localStorage.setItem('fleetwise_refresh_token', data.refreshToken);
+
+      passwordInput.value = '';
+      this.hideLoginOverlay();
+      this.updateUserUI();
+      this.showToast(`Welcome back, ${data.user.username}!`, 'success');
+      await this.refreshAll();
+    } catch (err) {
+      if (errorNotice) {
+        errorNotice.textContent = err.message;
+        errorNotice.style.display = 'block';
+      }
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  },
+
+  async silentRefresh() {
+    const refreshToken = localStorage.getItem('fleetwise_refresh_token');
+    if (!refreshToken) return false;
+
+    try {
+      const res = await fetch('/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken })
+      });
+
+      if (!res.ok) {
+        localStorage.removeItem('fleetwise_refresh_token');
+        state.accessToken = null;
+        state.currentUser = null;
+        return false;
+      }
+
+      const data = await res.json();
+      state.accessToken = data.accessToken;
+      state.currentUser = data.user;
+      state.userRole = data.user.role;
+
+      // Rotate refresh token in localStorage
+      localStorage.setItem('fleetwise_refresh_token', data.refreshToken);
+      this.updateUserUI();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  },
+
+  async logout() {
+    const refreshToken = localStorage.getItem('fleetwise_refresh_token');
+    try {
+      if (refreshToken) {
+        await fetch('/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken })
+        });
+      }
+    } catch (_) {}
+
+    localStorage.removeItem('fleetwise_refresh_token');
+    state.accessToken = null;
+    state.currentUser = null;
+    state.userRole = 'dispatcher';
+    this.updateUserUI();
+    this.showLoginOverlay();
+    this.showToast('Signed out successfully.', 'info');
+  },
+
+  updateUserUI() {
+    const username = state.currentUser ? state.currentUser.username : 'Guest';
+    const role = state.currentUser ? state.currentUser.role : 'None';
+
+    const headerName = document.getElementById('headerUserName');
+    const headerRole = document.getElementById('headerUserRole');
+    const sidebarName = document.getElementById('sidebarUserName');
+    const sidebarRole = document.getElementById('sidebarUserRole');
+    const sidebarAvatar = document.getElementById('sidebarUserAvatar');
+
+    if (headerName) headerName.textContent = username;
+    if (headerRole) headerRole.textContent = role;
+    if (sidebarName) sidebarName.textContent = username;
+    if (sidebarRole) sidebarRole.textContent = role;
+    if (sidebarAvatar) sidebarAvatar.textContent = username.charAt(0).toUpperCase();
+
+    // Role-based UI visibility enforcement
+    const isAdmin = role === 'admin' || role === 'fleet_manager';
+    const isDriver = role === 'driver';
+
+    // Context add buttons
+    const btnVeh = document.getElementById('btnHeaderCreateVehicle');
+    if (btnVeh) btnVeh.style.display = isAdmin ? 'inline-flex' : 'none';
+    const btnDrv = document.getElementById('btnHeaderCreateDriver');
+    if (btnDrv) btnDrv.style.display = isAdmin ? 'inline-flex' : 'none';
+
+    // Hide vehicle/driver sections for pure drivers
+    const fleetSection = document.getElementById('sidebarSectionFleet');
+    if (fleetSection) fleetSection.style.display = isDriver ? 'none' : 'block';
+    const tabVeh = document.getElementById('tabVehicles');
+    if (tabVeh) tabVeh.style.display = isDriver ? 'none' : 'flex';
+    const tabDrv = document.getElementById('tabDrivers');
+    if (tabDrv) tabDrv.style.display = isDriver ? 'none' : 'flex';
+    const tabQueue = document.getElementById('tabQueue');
+    if (tabQueue) tabQueue.style.display = isDriver ? 'none' : 'flex';
   },
 
   bindEvents() {
@@ -77,7 +245,10 @@ const app = {
       debounceTimer = setTimeout(() => {
         state.filters.search = e.target.value.trim();
         state.pagination.page = 1;
-        this.renderCurrentView();
+        if (viewName === 'livemap') {
+      this.initOrRefreshMap();
+    }
+    this.renderCurrentView();
       }, 250);
     });
 
@@ -105,6 +276,8 @@ const app = {
     });
 
     // Form Submissions
+    const loginForm = document.getElementById('formLogin');
+    if (loginForm) loginForm.addEventListener('submit', (e) => this.handleLoginFormSubmit(e));
     document.getElementById('formAssign').addEventListener('submit', (e) => this.handleAssignSubmit(e));
     document.getElementById('formNewDelivery').addEventListener('submit', (e) => this.handleDeliveryFormSubmit(e));
     document.getElementById('formNewVehicle').addEventListener('submit', (e) => this.handleVehicleFormSubmit(e));
@@ -235,9 +408,10 @@ const app = {
 
   async fetchDeliveries() {
     try {
-      const res = await fetch('/deliveries');
+      const res = await this.apiFetch('/deliveries');
       if (!res.ok) throw new Error('Failed to fetch deliveries');
-      state.deliveries = await res.json();
+      const data = await res.json();
+      state.deliveries = Array.isArray(data) ? data : (data.data || []);
     } catch (err) {
       this.showToast(err.message, 'error');
     }
@@ -245,9 +419,10 @@ const app = {
 
   async fetchVehicles() {
     try {
-      const res = await fetch('/vehicles');
+      const res = await this.apiFetch('/vehicles');
       if (!res.ok) throw new Error('Failed to fetch vehicles');
-      state.vehicles = await res.json();
+      const data = await res.json();
+      state.vehicles = Array.isArray(data) ? data : (data.data || []);
     } catch (err) {
       this.showToast(err.message, 'error');
     }
@@ -257,21 +432,44 @@ const app = {
     try {
       const res = await this.apiFetch('/drivers');
       if (!res.ok) throw new Error('Failed to fetch drivers');
-      state.drivers = await res.json();
+      const data = await res.json();
+      state.drivers = Array.isArray(data) ? data : (data.data || []);
     } catch (err) {
       this.showToast(err.message, 'error');
     }
   },
 
-  apiFetch(url, options = {}) {
+  async apiFetch(url, options = {}) {
     const headers = {
       'X-User-Role': state.userRole,
       ...(options.headers || {})
     };
+
+    // If access token is held in memory, include Bearer header
+    if (state.accessToken) {
+      headers['Authorization'] = `Bearer ${state.accessToken}`;
+    }
+
     if (options.body && typeof options.body === 'string' && !headers['Content-Type']) {
       headers['Content-Type'] = 'application/json';
     }
-    return fetch(url, { ...options, headers });
+
+    let response = await fetch(url, { ...options, headers });
+
+    // Handle 401: attempt one silent refresh if a refresh token is present
+    if (response.status === 401 && localStorage.getItem('fleetwise_refresh_token')) {
+      const refreshed = await this.silentRefresh();
+      if (refreshed && state.accessToken) {
+        // Retry the original request once with fresh token
+        headers['Authorization'] = `Bearer ${state.accessToken}`;
+        response = await fetch(url, { ...options, headers });
+      } else {
+        // Refresh failed: prompt login
+        this.showLoginOverlay();
+      }
+    }
+
+    return response;
   },
 
   setUserRole(role) {

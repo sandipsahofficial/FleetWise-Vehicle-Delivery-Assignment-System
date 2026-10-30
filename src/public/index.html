@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FleetWise — Dispatcher Dashboard</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -17,6 +18,50 @@
   <!-- Mobile sidebar backdrop -->
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
+  <!-- ═══════════════════════════════════════════════════════
+       LOGIN MODAL OVERLAY (Phase 1.5)
+  ════════════════════════════════════════════════════════ -->
+  <div id="loginOverlay" class="login-overlay" aria-hidden="true">
+    <div class="login-card" role="dialog" aria-labelledby="loginTitle">
+      <div class="login-brand">
+        <div class="login-brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16 8 20 8 23 11 23 16 16 8"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+          </svg>
+        </div>
+        <h2 id="loginTitle" class="login-title">Sign in to FleetWise</h2>
+        <p class="login-subtitle">Enterprise Vehicle & Delivery Dispatch Operations</p>
+      </div>
+
+      <form id="formLogin">
+        <div class="form-group">
+          <label for="loginUsername">Username <span class="required">*</span></label>
+          <input type="text" id="loginUsername" class="form-input" placeholder="e.g. admin" required autocomplete="username" />
+        </div>
+
+        <div class="form-group">
+          <label for="loginPassword">Password <span class="required">*</span></label>
+          <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" required autocomplete="current-password" />
+        </div>
+
+        <div id="loginErrorNotice" class="alert alert-danger" style="display: none; margin-bottom: 14px;"></div>
+
+        <button type="submit" id="btnSubmitLogin" class="btn btn-primary" style="width: 100%;">
+          Sign In
+        </button>
+      </form>
+
+      <div class="login-credentials-hint">
+        <strong>Default Demo Credentials:</strong><br>
+        Admin: <code>admin</code> / <code>AdminSecurePassword123!</code><br>
+        Or seed demo users via <code>Seed Demo</code> once signed in.
+      </div>
+    </div>
+  </div>
+
   <!-- App Shell -->
   <div class="app-shell">
 
@@ -28,7 +73,7 @@
         <div class="sidebar-brand-icon" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="1" y="3" width="15" height="13"></rect>
-            <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+            <polygon points="16 8 20 8 23 11 23 16 16 8"></polygon>
             <circle cx="5.5" cy="18.5" r="2.5"></circle>
             <circle cx="18.5" cy="18.5" r="2.5"></circle>
           </svg>
@@ -63,6 +108,17 @@
           <span class="sidebar-nav-label">Status Board</span>
         </button>
 
+        <button id="tabLiveMap" class="sidebar-nav-item" role="tab" aria-selected="false"
+                onclick="app.switchView('livemap')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+            <line x1="8" y1="2" x2="8" y2="18"></line>
+            <line x1="16" y1="6" x2="16" y2="22"></line>
+          </svg>
+          <span class="sidebar-nav-label">Live Fleet Map</span>
+          <span class="live-dot-pulse" id="liveMapIndicator" title="Live stream active"></span>
+        </button>
+
         <button id="tabQueue" class="sidebar-nav-item" role="tab" aria-selected="false"
                 onclick="app.switchView('queue')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -72,13 +128,13 @@
           <span class="sidebar-nav-badge urgent" id="countTabQueue">0</span>
         </button>
 
-        <div class="sidebar-section-label">Fleet</div>
+        <div class="sidebar-section-label" id="sidebarSectionFleet">Fleet</div>
 
         <button id="tabVehicles" class="sidebar-nav-item" role="tab" aria-selected="false"
                 onclick="app.switchView('vehicles')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="1" y="3" width="15" height="13"></rect>
-            <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+            <polygon points="16 8 20 8 23 11 23 16 16 8"></polygon>
             <circle cx="5.5" cy="18.5" r="2.5"></circle>
             <circle cx="18.5" cy="18.5" r="2.5"></circle>
           </svg>
@@ -96,7 +152,7 @@
           <span class="sidebar-nav-badge" id="countTabDrivers">0</span>
         </button>
 
-        <div class="sidebar-section-label">Insights</div>
+        <div class="sidebar-section-label" id="sidebarSectionInsights">Insights</div>
 
         <button id="tabAnalytics" class="sidebar-nav-item" role="tab" aria-selected="false"
                 onclick="app.switchView('analytics')">
@@ -121,10 +177,29 @@
 
       </nav>
 
-      <!-- Bottom: Role + Health -->
+      <!-- Bottom: User & Role & Health -->
       <div class="sidebar-bottom">
-        <div class="sidebar-role-block">
-          <div class="sidebar-role-label">Active Role</div>
+        <!-- User Badge & Logout in Sidebar -->
+        <div class="sidebar-user-card" id="sidebarUserCard">
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-avatar" id="sidebarUserAvatar">A</div>
+            <div class="sidebar-user-meta">
+              <div class="sidebar-user-name" id="sidebarUserName">Admin</div>
+              <div class="sidebar-user-role" id="sidebarUserRole">Administrator</div>
+            </div>
+          </div>
+          <button id="btnLogout" class="btn btn-ghost btn-xs text-danger" title="Sign out" onclick="app.logout()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Role Selector (Preserved for existing DOM integrity check) -->
+        <div class="sidebar-role-block" id="roleSelectorBlock" style="display: none;">
+          <div class="sidebar-role-label">Active Role Override</div>
           <select id="userRoleSelect" class="sidebar-role-select"
                   onchange="app.setUserRole(this.value)"
                   title="Switch active role for access control">
@@ -132,6 +207,7 @@
             <option value="dispatcher">Dispatcher (Operations)</option>
           </select>
         </div>
+
         <div id="systemHealthBadge" class="sidebar-health health-checking">
           <span class="health-dot"></span>
           <span id="healthText">Connecting...</span>
@@ -164,6 +240,30 @@
         </div>
 
         <div class="top-bar-actions">
+          <!-- Socket Connection Status -->
+          <div id="socketStatusBadge" class="connection-pill status-disconnected" title="Real-time WebSockets status">
+            <span class="status-indicator-dot"></span>
+            <span id="socketStatusText">Offline</span>
+          </div>
+
+          <!-- User header pill -->
+          <div class="header-user-badge" id="headerUserBadge">
+            <span id="headerUserName">admin</span>
+            <span class="role-pill" id="headerUserRole">admin</span>
+          </div>
+
+          <!-- Socket Connection Status (Phase 2 Real-Time) -->
+          <div id="socketStatusBadge" class="connection-pill status-disconnected" title="Real-time WebSockets status">
+            <span class="status-indicator-dot"></span>
+            <span id="socketStatusText">Offline</span>
+          </div>
+
+          <!-- User header pill -->
+          <div class="header-user-badge" id="headerUserBadge">
+            <span id="headerUserName">admin</span>
+            <span class="role-pill" id="headerUserRole">admin</span>
+          </div>
+
           <button id="btnSeedDemo" class="btn btn-secondary btn-sm" title="Seed realistic test fleet data">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
@@ -293,6 +393,30 @@
           </div>
         </section>
 
+        <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
+          </div>
+        </section>
+
         <!-- ── Delivery Status Distribution Bar ──────────── -->
         <div class="dist-bar-card">
           <div class="dist-bar-header">
@@ -386,7 +510,7 @@
               <div class="empty-icon">📦</div>
               <h3>No Deliveries Found</h3>
               <p class="text-muted">No delivery requests match the active filters.</p>
-              <button class="btn btn-primary btn-sm" onclick="app.openNewDeliveryModal()">Create Delivery Request</button>
+              <button class="btn btn-primary btn-sm" id="btnEmptyCreateDelivery" onclick="app.openNewDeliveryModal()">Create Delivery Request</button>
             </div>
             <div class="pagination-bar" id="deliveriesPaginationBar">
               <span class="pagination-info" id="delPaginationInfo">Showing 0–0 of 0</span>
@@ -396,6 +520,30 @@
                 <button class="btn btn-ghost btn-sm" id="btnDelNext" onclick="app.nextPage('del')">Next →</button>
               </div>
             </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
           </div>
         </section>
 
@@ -443,6 +591,30 @@
         </section>
 
         <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
              VIEW 3: VEHICLES TABLE
         ════════════════════════════════════════════════ -->
         <section id="viewVehicles" class="view-panel" style="display:none;" role="tabpanel">
@@ -452,7 +624,7 @@
                 <h3>Vehicle Fleet Directory</h3>
                 <p>Commercial vehicles, capacity ratings, and active assignment states</p>
               </div>
-              <button class="btn btn-primary btn-sm" onclick="app.openNewVehicleModal()">+ Add Vehicle</button>
+              <button class="btn btn-primary btn-sm" id="btnHeaderCreateVehicle" onclick="app.openNewVehicleModal()">+ Add Vehicle</button>
             </div>
             <div class="table-responsive">
               <table class="data-table" id="vehiclesTable">
@@ -480,6 +652,30 @@
         </section>
 
         <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
              VIEW 4: DRIVERS TABLE
         ════════════════════════════════════════════════ -->
         <section id="viewDrivers" class="view-panel" style="display:none;" role="tabpanel">
@@ -489,7 +685,7 @@
                 <h3>Driver Personnel Roster</h3>
                 <p>Driver contacts, availability status, and active assignments</p>
               </div>
-              <button class="btn btn-primary btn-sm" onclick="app.openNewDriverModal()">+ Add Driver</button>
+              <button class="btn btn-primary btn-sm" id="btnHeaderCreateDriver" onclick="app.openNewDriverModal()">+ Add Driver</button>
             </div>
             <div class="table-responsive">
               <table class="data-table" id="driversTable">
@@ -512,6 +708,30 @@
               <h3>No Drivers Registered</h3>
               <p class="text-muted">Register drivers or click "Seed Demo" to load initial personnel.</p>
             </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
           </div>
         </section>
 
@@ -555,6 +775,30 @@
               <h3>Priority Queue Clear</h3>
               <p class="text-muted">No pending deliveries waiting for allocation.</p>
             </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
           </div>
         </section>
 
@@ -621,6 +865,30 @@
         </section>
 
         <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
              VIEW 7: AUDIT TRAIL
         ════════════════════════════════════════════════ -->
         <section id="viewAudit" class="view-panel" style="display:none;" role="tabpanel">
@@ -656,6 +924,30 @@
                 <tbody id="auditTableBody"></tbody>
               </table>
             </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
           </div>
         </section>
 
@@ -897,6 +1189,8 @@
     </div>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -1,26 +1,32 @@
+const http = require('node:http');
 const app = require('./app');
 const config = require('./config');
 const { getDb } = require('./db/database');
+const { initSocket } = require('./realtime/socket');
+const logger = require('./utils/logger');
 
 // Initialize database
 try {
   getDb();
-  console.log(`[FleetWise] Database initialized at: ${config.dbPath}`);
+  logger.info({ path: config.dbPath }, 'Database initialized successfully');
 } catch (err) {
-  console.error('[FleetWise] Failed to initialize database:', err);
+  logger.fatal({ error: err.message }, 'Failed to initialize database');
   process.exit(1);
 }
 
-const server = app.listen(config.port, () => {
-  console.log(`[FleetWise] Server running on http://localhost:${config.port}`);
+// Create HTTP Server & attach Socket.IO
+const server = http.createServer(app);
+const io = initSocket(server);
+
+server.listen(config.port, () => {
+  logger.info({ port: config.port }, `FleetWise server running on http://localhost:${config.port}`);
 });
 
 process.on('SIGINT', () => {
-  console.log('[FleetWise] Gracefully shutting down...');
+  logger.info('Gracefully shutting down...');
   server.close(() => {
     process.exit(0);
   });
 });
 
 module.exports = server;
-

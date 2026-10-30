@@ -148,8 +148,19 @@ class AssignmentService {
         details: `Assigned vehicle ${vehicle.registration_number} (${vehicle.type}) and driver ${driver.name} to delivery ${deliveryId}`
       });
 
+      // Fetch fresh updated records
+      const updatedDelivery = deliveryRepository.findById(deliveryId);
+      const updatedVehicle = vehicleRepository.findById(vehicleId);
+
+      // Real-time Event Emission (POST-COMMIT only)
+      try {
+        const events = require('../realtime/events');
+        events.emitDeliveryAssigned(updatedDelivery);
+        events.emitVehicleStatusChanged(updatedVehicle);
+      } catch (_) {}
+
       // Return updated delivery object
-      return deliveryRepository.findById(deliveryId);
+      return updatedDelivery;
     } catch (err) {
       try {
         db.exec('ROLLBACK');
