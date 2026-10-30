@@ -65,6 +65,13 @@ class DeliveryService {
       performed_by: performedBy,
       details: `Created delivery request for ${created.pickup_address} -> ${created.dropoff_address}`
     });
+
+    // Real-time Event Emission (POST-COMMIT only)
+    try {
+      const events = require('../realtime/events');
+      events.emitDeliveryCreated(created);
+    } catch (_) {}
+
     return created;
   }
 
@@ -202,7 +209,15 @@ class DeliveryService {
         details: `Transitioned status from ${currentStatus} to ${targetStatus}`
       });
 
-      return deliveryRepository.findById(id);
+      const updated = deliveryRepository.findById(id);
+
+      // Real-time Event Emission (POST-COMMIT only)
+      try {
+        const events = require('../realtime/events');
+        events.emitDeliveryStatusChanged(updated);
+      } catch (_) {}
+
+      return updated;
     } catch (err) {
       try {
         db.exec('ROLLBACK');

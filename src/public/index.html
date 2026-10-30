@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FleetWise — Dispatcher Dashboard</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -105,6 +106,17 @@
             <rect x="14" y="3" width="7" height="18" rx="1"></rect>
           </svg>
           <span class="sidebar-nav-label">Status Board</span>
+        </button>
+
+        <button id="tabLiveMap" class="sidebar-nav-item" role="tab" aria-selected="false"
+                onclick="app.switchView('livemap')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+            <line x1="8" y1="2" x2="8" y2="18"></line>
+            <line x1="16" y1="6" x2="16" y2="22"></line>
+          </svg>
+          <span class="sidebar-nav-label">Live Fleet Map</span>
+          <span class="live-dot-pulse" id="liveMapIndicator" title="Live stream active"></span>
         </button>
 
         <button id="tabQueue" class="sidebar-nav-item" role="tab" aria-selected="false"
@@ -228,6 +240,12 @@
         </div>
 
         <div class="top-bar-actions">
+          <!-- Socket Connection Status -->
+          <div id="socketStatusBadge" class="connection-pill status-disconnected" title="Real-time WebSockets status">
+            <span class="status-indicator-dot"></span>
+            <span id="socketStatusText">Offline</span>
+          </div>
+
           <!-- User header pill -->
           <div class="header-user-badge" id="headerUserBadge">
             <span id="headerUserName">admin</span>
@@ -509,6 +527,30 @@
               </div>
               <div class="board-cards-container" id="boardColCancelled"></div>
             </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 2.5: LIVE FLEET MAP (Phase 2 Real-Time)
+        ════════════════════════════════════════════════ -->
+        <section id="viewLiveMap" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Live Fleet Telematics &amp; GPS Tracking</h2>
+              <p class="panel-sub">Real-time GPS telemetry from active drivers and assigned delivery units</p>
+            </div>
+            <div class="panel-actions">
+              <span id="mapLastUpdated" class="text-xs text-muted" style="margin-right: 8px;">Waiting for telemetry...</span>
+              <button class="btn btn-secondary btn-sm" id="btnFitMapBounds" onclick="app.fitMapBounds()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+                Center Fleet
+              </button>
+            </div>
+          </div>
+          <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+            <div id="fleetMap" style="height: 600px; width: 100%;"></div>
           </div>
         </section>
 
@@ -967,6 +1009,8 @@
     </div>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

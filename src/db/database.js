@@ -107,10 +107,33 @@ function initDatabase(customPath) {
       created_at TEXT NOT NULL DEFAULT (DATETIME('now'))
     );
 
+    -- Driver Live Locations (Phase 2 Real-Time Core)
+    CREATE TABLE IF NOT EXISTS driver_locations (
+      driver_id TEXT PRIMARY KEY REFERENCES drivers(id) ON DELETE CASCADE,
+      lat REAL NOT NULL,
+      lng REAL NOT NULL,
+      speed REAL DEFAULT 0,
+      heading REAL DEFAULT 0,
+      timestamp TEXT NOT NULL DEFAULT (DATETIME('now')),
+      updated_at TEXT NOT NULL DEFAULT (DATETIME('now'))
+    );
+
+    -- Driver Location History (Phase 2 with Automated Pruning & Time-based Retention)
+    CREATE TABLE IF NOT EXISTS driver_location_history (
+      id TEXT PRIMARY KEY,
+      driver_id TEXT NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
+      lat REAL NOT NULL,
+      lng REAL NOT NULL,
+      speed REAL DEFAULT 0,
+      heading REAL DEFAULT 0,
+      timestamp TEXT NOT NULL DEFAULT (DATETIME('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity_type, entity_id);
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
     CREATE INDEX IF NOT EXISTS idx_refresh_token_hash ON refresh_tokens(token_hash);
     CREATE INDEX IF NOT EXISTS idx_refresh_user ON refresh_tokens(user_id);
+    CREATE INDEX IF NOT EXISTS idx_driver_history ON driver_location_history(driver_id, timestamp DESC);
 
     -- Partial unique indexes: prevents double-booking at the physical database schema level!
     CREATE UNIQUE INDEX IF NOT EXISTS idx_active_assign_vehicle 

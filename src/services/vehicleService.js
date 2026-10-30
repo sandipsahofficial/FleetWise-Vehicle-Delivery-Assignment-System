@@ -108,6 +108,13 @@ class VehicleService {
       performed_by: 'fleet_manager',
       details: `Vehicle status transitioned from ${vehicle.status} to ${targetStatus}`
     });
+
+    // Real-time Event Emission (POST-COMMIT only)
+    try {
+      const events = require('../realtime/events');
+      events.emitVehicleStatusChanged(updated);
+    } catch (_) {}
+
     return updated;
   }
 

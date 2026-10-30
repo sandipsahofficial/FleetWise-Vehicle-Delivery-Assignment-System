@@ -1,17 +1,76 @@
 const express = require('express');
 const driverService = require('../services/driverService');
+const locationService = require('../services/locationService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
 const { validate } = require('../middleware/validate');
 const { paginate } = require('../utils/pagination');
+const { apiLimiter } = require('../middleware/rateLimiter');
 const {
   createDriverSchema,
   updateDriverStatusSchema,
   updateDriverSchema,
   listDriverQuerySchema
 } = require('../schemas/driverSchemas');
+const { locationUpdateSchema } = require('../schemas/locationSchemas');
 
 const router = express.Router();
+
+// -------------------------------------------------------------
+// LOCATION ROUTES (IMPORTANT: Registered BEFORE /drivers/:id)
+// -------------------------------------------------------------
+
+// GET /drivers/locations/latest - Live positions for map (admin & dispatcher only)
+router.get(
+  '/drivers/locations/latest',
+  authenticate(),
+  requireRole(['admin', 'dispatcher']),
+  (req, res, next) => {
+    try {
+      const locations = locationService.getLatestLocations();
+      res.status(200).json(locations);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /drivers/:id/location or /drivers/:id/locations - Driver location update (REST fallback, rate limited & validated)
+router.post(
+  ['/drivers/:id/location', '/drivers/:id/locations'],
+  apiLimiter,
+  authenticate(),
+  validate(locationUpdateSchema),
+  (req, res, next) => {
+    try {
+      const updated = locationService.updateLocation(req.params.id, req.body, req.user);
+      res.status(200).json({
+        message: 'Driver location recorded successfully',
+        location: updated
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /drivers/:id/locations/history - Driver location history (admins/dispatchers, or driver for own history)
+router.get(
+  ['/drivers/:id/locations/history', '/drivers/:id/location/history'],
+  authenticate(),
+  (req, res, next) => {
+    try {
+      const history = locationService.getDriverHistory(req.params.id, req.user);
+      res.status(200).json(history);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// -------------------------------------------------------------
+// DRIVER CRUD ROUTES
+// -------------------------------------------------------------
 
 // POST /drivers - create driver (requires admin)
 router.post(

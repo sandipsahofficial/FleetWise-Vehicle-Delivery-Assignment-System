@@ -245,7 +245,10 @@ const app = {
       debounceTimer = setTimeout(() => {
         state.filters.search = e.target.value.trim();
         state.pagination.page = 1;
-        this.renderCurrentView();
+        if (viewName === 'livemap') {
+      this.initOrRefreshMap();
+    }
+    this.renderCurrentView();
       }, 250);
     });
 
