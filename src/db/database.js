@@ -135,6 +135,37 @@ function initDatabase(customPath) {
     CREATE INDEX IF NOT EXISTS idx_refresh_user ON refresh_tokens(user_id);
     CREATE INDEX IF NOT EXISTS idx_driver_history ON driver_location_history(driver_id, timestamp DESC);
 
+    -- Delivery Proof of Delivery (Phase 3A)
+    CREATE TABLE IF NOT EXISTS delivery_proofs (
+      delivery_id TEXT PRIMARY KEY REFERENCES deliveries(id) ON DELETE CASCADE,
+      proof_type TEXT NOT NULL,
+      otp_hash TEXT,
+      otp_expires_at TEXT,
+      otp_attempts INTEGER NOT NULL DEFAULT 0,
+      otp_locked INTEGER NOT NULL DEFAULT 0,
+      photo_path TEXT,
+      photo_mime TEXT,
+      photo_size INTEGER,
+      lat REAL,
+      lng REAL,
+      completed_at TEXT NOT NULL DEFAULT (DATETIME('now')),
+      created_at TEXT NOT NULL DEFAULT (DATETIME('now'))
+    );
+
+    -- Public Customer Tracking Links (Phase 3A: stores only SHA-256 hash of token)
+    CREATE TABLE IF NOT EXISTS tracking_links (
+      id TEXT PRIMARY KEY,
+      delivery_id TEXT NOT NULL REFERENCES deliveries(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TEXT,
+      revoked INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (DATETIME('now')),
+      updated_at TEXT NOT NULL DEFAULT (DATETIME('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_tracking_token_hash ON tracking_links(token_hash);
+    CREATE INDEX IF NOT EXISTS idx_tracking_delivery_id ON tracking_links(delivery_id);
+
     -- Partial unique indexes: prevents double-booking at the physical database schema level!
     CREATE UNIQUE INDEX IF NOT EXISTS idx_active_assign_vehicle 
       ON assignments(vehicle_id) WHERE is_active = 1;

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>FleetWise — Shipment Live Tracking</title>
+  <link rel="stylesheet" href="/track/track.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+</head>
+<body>
+  <div class="tracking-container">
+    <header class="tracking-header">
+      <div class="brand">
+        <span>🚚</span>
+        <span>FleetWise Tracking</span>
+      </div>
+      <div id="trackingStatusBadge" class="badge-status badge-pending">Loading...</div>
+    </header>
+
+    <main>
+      <!-- Loading State -->
+      <div id="loadingState" class="tracking-card" style="text-align: center; padding: 40px;">
+        <p>Loading live tracking information…</p>
+      </div>
+
+      <!-- Error State -->
+      <div id="errorState" class="error-banner" style="display: none;">
+        <h3>Tracking Link Unavailable</h3>
+        <p id="errorMessage">This shipment tracking link is invalid, expired, or has been revoked.</p>
+      </div>
+
+      <!-- Main Content State -->
+      <div id="contentState" class="tracking-card" style="display: none;">
+        <h2 id="trackingStageText" style="font-size: 20px; font-weight: 700; margin-bottom: 4px;">Out for Delivery</h2>
+        <p id="deliveryMeta" style="font-size: 13px; color: #64748b; margin-bottom: 16px;">Shipment in progress</p>
+
+        <!-- Progress Timeline -->
+        <div class="timeline">
+          <div class="timeline-step" id="step_pending">
+            <div class="step-dot">1</div>
+            <div class="step-label">Order Received</div>
+          </div>
+          <div class="timeline-step" id="step_assigned">
+            <div class="step-dot">2</div>
+            <div class="step-label">Dispatched</div>
+          </div>
+          <div class="timeline-step" id="step_in_transit">
+            <div class="step-dot">3</div>
+            <div class="step-label">Out for Delivery</div>
+          </div>
+          <div class="timeline-step" id="step_delivered">
+            <div class="step-dot">4</div>
+            <div class="step-label">Delivered</div>
+          </div>
+        </div>
+
+        <!-- Live Vehicle Map (in_transit only) -->
+        <div id="mapWrapper" class="map-wrapper" style="display: none;"></div>
+
+        <!-- Route Details -->
+        <div class="route-info">
+          <div class="route-point">
+            <span class="point-icon">📍</span>
+            <div>
+              <div class="point-label">Pickup Location</div>
+              <div class="point-val" id="pickupAddress">—</div>
+            </div>
+          </div>
+          <div class="route-point">
+            <span class="point-icon">🏁</span>
+            <div>
+              <div class="point-label">Delivery Destination</div>
+              <div class="point-val" id="dropoffAddress">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/track/track.js"></script>
+</body>
+</html>

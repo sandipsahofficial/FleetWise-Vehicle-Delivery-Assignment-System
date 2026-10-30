@@ -169,8 +169,15 @@ router.patch(
       const delivery = deliveryService.getDeliveryById(req.params.id);
       assertDriverOwnership(delivery, req);
 
-      const { status } = req.body || {};
-      const updated = deliveryService.updateDeliveryStatus(req.params.id, status, req.performedBy || 'system');
+      const { status, reason } = req.body || {};
+
+      // Requirement 2: Block drivers from directly marking status=delivered
+      if (req.user && req.user.role === 'driver' && status === 'delivered') {
+        throw new ForbiddenError('Drivers cannot mark deliveries as delivered via status update. Completion requires verified proof of delivery (complete-otp or complete-photo).');
+      }
+
+      const overrideReason = reason || (status === 'delivered' ? 'Dispatcher/Admin operational override' : null);
+      const updated = deliveryService.updateDeliveryStatus(req.params.id, status, req.user?.username || req.performedBy || 'system', overrideReason);
       res.status(200).json({
         message: `Delivery status transitioned to '${status}'`,
         delivery: updated

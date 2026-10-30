@@ -1,0 +1,17 @@
+{
+  "name": "FleetWise Driver Operations",
+  "short_name": "Driver App",
+  "description": "FleetWise Mobile Driver Operations & Proof of Delivery",
+  "start_url": "/driver/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
