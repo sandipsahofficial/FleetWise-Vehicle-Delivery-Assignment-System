@@ -1,0 +1,331 @@
+openapi: 3.0.3
+info:
+  title: FleetWise — Vehicle & Delivery Assignment System API
+  version: 1.0.0
+  description: >
+    Enterprise-grade, real-time fleet management and delivery dispatch API.
+    Provides strict resource conflict prevention, atomic ACID assignments,
+    deterministic delivery lifecycle management, role-based access control,
+    and driver-scoped operational endpoints.
+servers:
+  - url: /
+    description: Current Host
+paths:
+  /auth/login:
+    post:
+      summary: User authentication
+      description: Exchanges username and password for JWT access and refresh token pair. Rate-limited.
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  example: admin
+                password:
+                  type: string
+                  example: AdminSecurePassword123!
+      responses:
+        '200':
+          description: Login successful
+        '401':
+          description: Invalid credentials
+        '429':
+          description: Too many attempts, rate limit exceeded
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      description: Submits a valid refresh token, revokes it, and issues a fresh token pair.
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Token rotated and fresh access token issued
+        '401':
+          description: Revoked or expired refresh token
+
+  /auth/register:
+    post:
+      summary: Register new user (Admin only)
+      description: Creates a user account with role admin, dispatcher, or driver.
+      tags: [Authentication]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, role]
+              properties:
+                username:
+                  type: string
+                  example: dispatcher1
+                password:
+                  type: string
+                  example: SecurePass123!
+                role:
+                  type: string
+                  enum: [admin, dispatcher, driver]
+                  example: dispatcher
+                driver_id:
+                  type: string
+                  nullable: true
+                  example: DRV-A100
+      responses:
+        '201':
+          description: User registered successfully
+        '403':
+          description: Admin authorization required
+
+  /auth/me:
+    get:
+      summary: Get current authenticated user profile
+      tags: [Authentication]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+
+  /vehicles:
+    get:
+      summary: List fleet vehicles
+      tags: [Vehicles]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [available, assigned, maintenance, inactive]
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of vehicles
+    post:
+      summary: Register new vehicle
+      tags: [Vehicles]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [registration_number, type, capacity]
+              properties:
+                registration_number:
+                  type: string
+                  example: TRK-9000
+                type:
+                  type: string
+                  example: Box Truck
+                capacity:
+                  type: number
+                  example: 2500
+                status:
+                  type: string
+                  enum: [available, maintenance, inactive]
+                  default: available
+      responses:
+        '201':
+          description: Vehicle created
+
+  /drivers:
+    get:
+      summary: List drivers
+      tags: [Drivers]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of drivers
+    post:
+      summary: Register driver
+      tags: [Drivers]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, phone]
+              properties:
+                name:
+                  type: string
+                  example: Michael Brown
+                phone:
+                  type: string
+                  example: +1-555-0199
+                availability_status:
+                  type: string
+                  enum: [available, unavailable]
+                  default: available
+      responses:
+        '201':
+          description: Driver registered
+
+  /deliveries:
+    get:
+      summary: List deliveries
+      description: Returns deliveries. When accessed by a driver, automatically scopes to only that driver's assignments.
+      tags: [Deliveries]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deliveries list
+    post:
+      summary: Create delivery request
+      tags: [Deliveries]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pickup_address, dropoff_address, scheduled_time]
+              properties:
+                pickup_address:
+                  type: string
+                  example: 100 Main St
+                dropoff_address:
+                  type: string
+                  example: 500 Market St
+                scheduled_time:
+                  type: string
+                  format: date-time
+                priority:
+                  type: string
+                  enum: [low, medium, high, urgent]
+                  default: medium
+                required_capacity:
+                  type: number
+                  default: 0
+      responses:
+        '201':
+          description: Delivery created in pending state
+
+  /deliveries/{id}/assign:
+    post:
+      summary: Atomically assign vehicle and driver
+      tags: [Deliveries]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicle_id, driver_id]
+              properties:
+                vehicle_id:
+                  type: string
+                driver_id:
+                  type: string
+      responses:
+        '200':
+          description: Resources assigned atomically
+        '409':
+          description: Resource conflict or vehicle/driver already occupied
+
+  /deliveries/{id}/status:
+    patch:
+      summary: Transition delivery status
+      description: Transitions along deterministic lifecycle state machine. Drivers can only update their assigned deliveries.
+      tags: [Deliveries]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [pending, assigned, in_transit, delivered, cancelled]
+      responses:
+        '200':
+          description: Status updated
+
+  /health:
+    get:
+      summary: System health check
+      tags: [System]
+      responses:
+        '200':
+          description: Health details
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
