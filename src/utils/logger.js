@@ -17,7 +17,13 @@ const logger = pino({
       'otp',
       'otp_hash',
       'password',
-      'refreshToken'
+      'refreshToken',
+      'email',
+      'phone',
+      'recipient',
+      'to',
+      'customer_name',
+      'params_json'
     ],
     censor: '[REDACTED]'
   },

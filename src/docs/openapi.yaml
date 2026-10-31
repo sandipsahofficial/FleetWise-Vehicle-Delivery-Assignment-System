@@ -486,6 +486,236 @@ paths:
       responses:
         "200":
           description: New OTP generated
+  /api/customers:
+    post:
+      summary: Register customer contact for delivery notifications
+      tags:
+        - Customers
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - delivery_id
+                - name
+                - email
+              properties:
+                delivery_id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                consent:
+                  type: boolean
+      responses:
+        "201":
+          description: Customer contact registered
+        "400":
+          description: Validation error
+  /api/customers/{deliveryId}:
+    get:
+      summary: Get customer contact for delivery
+      tags:
+        - Customers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: deliveryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Customer contact
+        "404":
+          description: Not found
+    delete:
+      summary: Anonymize or scrub customer contact details
+      tags:
+        - Customers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: deliveryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Contact anonymized
+  /api/notifications/outbox:
+    get:
+      summary: List transactional notification outbox queue entries
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - pending
+              - processing
+              - sent
+              - failed
+      responses:
+        "200":
+          description: Outbox entries
+  /api/maintenance/schedules:
+    post:
+      summary: Create scheduled maintenance for a vehicle
+      tags:
+        - Maintenance
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - vehicle_id
+                - service_type
+              properties:
+                vehicle_id:
+                  type: string
+                service_type:
+                  type: string
+                due_date:
+                  type: string
+                  format: date
+                due_odometer:
+                  type: number
+                notes:
+                  type: string
+      responses:
+        "201":
+          description: Schedule created
+    get:
+      summary: List maintenance schedules
+      tags:
+        - Maintenance
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of schedules
+  /api/maintenance/overdue:
+    get:
+      summary: Get overdue maintenance schedules
+      tags:
+        - Maintenance
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of overdue schedules
+  /api/maintenance/records:
+    post:
+      summary: Record completed maintenance with monotonic odometer update
+      tags:
+        - Maintenance
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - vehicle_id
+                - service_type
+                - odometer
+                - cost
+              properties:
+                vehicle_id:
+                  type: string
+                service_type:
+                  type: string
+                odometer:
+                  type: number
+                cost:
+                  type: number
+                notes:
+                  type: string
+      responses:
+        "201":
+          description: Maintenance recorded
+  /api/fuel-logs:
+    post:
+      summary: Submit fuel log (drivers scoped to currently assigned vehicle)
+      tags:
+        - Fuel
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - vehicle_id
+                - liters
+                - cost
+                - odometer
+              properties:
+                vehicle_id:
+                  type: string
+                liters:
+                  type: number
+                cost:
+                  type: number
+                odometer:
+                  type: number
+                logged_at:
+                  type: string
+      responses:
+        "201":
+          description: Fuel log saved
+    get:
+      summary: List fuel logs
+      tags:
+        - Fuel
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of fuel logs
+  /api/reports/deliveries/csv:
+    get:
+      summary: Export deliveries CSV report
+      tags:
+        - Reports
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: CSV file attachment
+  /api/reports/summary/pdf:
+    get:
+      summary: Export executive summary PDF report
+      tags:
+        - Reports
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: PDF file attachment
 components:
   securitySchemes:
     BearerAuth:

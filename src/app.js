@@ -18,6 +18,10 @@ const deliveryRoutes = require('./routes/deliveryRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const proofRoutes = require('./routes/proofRoutes');
 const trackingRoutes = require('./routes/trackingRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const maintenanceRoutes = require('./routes/maintenanceRoutes');
+const reportRoutes = require('./routes/reportRoutes');
+const outboxWorker = require('./services/notifications/outboxWorker');
 
 /**
  * Express application factory.
@@ -30,14 +34,20 @@ function createApp(customConfig = {}) {
   };
 
   const app = express();
+  app.locals.config = config;
 
   // Set trust proxy for production deployments behind reverse proxies
   app.set('trust proxy', 1);
 
-  // Expose config on app for middleware inspection if needed
-  app.locals.config = config;
+  // Structured HTTP request logging with Pino
+  app.use(pinoHttp({
+    logger: defaultLogger,
+    autoLogging: {
+      ignore: (req) => req.url.startsWith('/health') || req.url.startsWith('/favicon.ico')
+    }
+  }));
 
-  // HTTP Security Headers with Content-Security-Policy configured for Leaflet, OSM & WebSockets
+  // Enhanced security headers via Helmet
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
@@ -45,20 +55,17 @@ function createApp(customConfig = {}) {
         scriptSrc: [
           "'self'",
           "'unsafe-inline'",
-          "'unsafe-eval'",
-          "https://unpkg.com",
-          "https://cdnjs.cloudflare.com"
+          "https://unpkg.com"
         ],
         styleSrc: [
           "'self'",
           "'unsafe-inline'",
-          "https://fonts.googleapis.com",
-          "https://unpkg.com"
+          "https://unpkg.com",
+          "https://fonts.googleapis.com"
         ],
         fontSrc: [
           "'self'",
-          "https://fonts.gstatic.com",
-          "data:"
+          "https://fonts.gstatic.com"
         ],
         imgSrc: [
           "'self'",
@@ -75,28 +82,20 @@ function createApp(customConfig = {}) {
           "https:"
         ]
       }
-    }
+    },
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
   }));
 
-  // CORS Configuration with Expose Headers
+  // CORS configuration
   app.use(cors({
     origin: config.corsOrigin === '*' ? true : config.corsOrigin.split(','),
-    exposedHeaders: ['X-Total-Count', 'X-Page', 'X-Limit', 'X-Total-Pages']
+    credentials: true,
+    exposedHeaders: ['X-Total-Count', 'X-Total-Pages', 'X-Current-Page', 'X-Per-Page', 'Content-Disposition']
   }));
 
-  // Request parsing
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
-
-  // Structured Request Logging (pino) - auto-disabled in test mode unless forced
-  if (config.nodeEnv !== 'test') {
-    app.use(pinoHttp({
-      logger: defaultLogger,
-      autoLogging: {
-        ignore: (req) => req.url === '/health' || req.url.startsWith('/public')
-      }
-    }));
-  }
+  // Body parsers
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
   // Serve static frontend assets
   app.use('/driver', express.static(path.join(__dirname, 'public', 'driver')));
@@ -131,7 +130,14 @@ function createApp(customConfig = {}) {
   app.use('/', deliveryRoutes);
   app.use('/', proofRoutes);
   app.use('/', trackingRoutes);
+  app.use('/', notificationRoutes);
+  app.use('/', maintenanceRoutes);
+  app.use('/', reportRoutes);
   app.use('/api', dashboardRoutes);
+
+  // Start background outbox notification worker
+  outboxWorker.start();
+  app.outboxWorker = outboxWorker;
 
   // 404 handler for unknown API routes
   app.use('/api', (req, res) => {

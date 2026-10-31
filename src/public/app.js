@@ -490,6 +490,11 @@ const app = {
     document.getElementById('tabAnalytics').classList.toggle('active', viewName === 'analytics');
     document.getElementById('tabAudit').classList.toggle('active', viewName === 'audit');
 
+    // Phase 3B Tabs
+    if (document.getElementById('tabMaintenance')) document.getElementById('tabMaintenance').classList.toggle('active', viewName === 'maintenance');
+    if (document.getElementById('tabReports')) document.getElementById('tabReports').classList.toggle('active', viewName === 'reports');
+    if (document.getElementById('tabOutbox')) document.getElementById('tabOutbox').classList.toggle('active', viewName === 'outbox');
+
     // Panels
     document.getElementById('viewDeliveries').style.display = viewName === 'deliveries' ? 'block' : 'none';
     document.getElementById('viewBoard').style.display = viewName === 'board' ? 'block' : 'none';
@@ -498,6 +503,14 @@ const app = {
     document.getElementById('viewQueue').style.display = viewName === 'queue' ? 'block' : 'none';
     document.getElementById('viewAnalytics').style.display = viewName === 'analytics' ? 'block' : 'none';
     document.getElementById('viewAudit').style.display = viewName === 'audit' ? 'block' : 'none';
+
+    // Phase 3B Panels
+    if (document.getElementById('viewMaintenance')) document.getElementById('viewMaintenance').style.display = viewName === 'maintenance' ? 'block' : 'none';
+    if (document.getElementById('viewReports')) document.getElementById('viewReports').style.display = viewName === 'reports' ? 'block' : 'none';
+    if (document.getElementById('viewOutbox')) document.getElementById('viewOutbox').style.display = viewName === 'outbox' ? 'block' : 'none';
+
+    if (viewName === 'maintenance') this.loadMaintenanceData();
+    if (viewName === 'outbox') this.loadOutboxData();
 
     // Context action buttons
     document.getElementById('btnCreateVehicleFromTab').style.display = viewName === 'vehicles' ? 'inline-flex' : 'none';
@@ -1486,6 +1499,131 @@ const app = {
   closeModal(id) {
     const el = document.getElementById(id);
     if (el) el.classList.remove('open');
+  },
+
+  async checkOverdueMaintenance() {
+    try {
+      const res = await this.apiFetch('/api/maintenance/overdue');
+      if (!res.ok) return;
+      const data = await res.json();
+      const count = data.count || 0;
+      const banner = document.getElementById('overdueMaintenanceBanner');
+      const badge = document.getElementById('badgeOverdueMaint');
+      const countText = document.getElementById('overdueCountText');
+      if (banner && countText) {
+        if (count > 0) {
+          banner.style.display = 'block';
+          countText.textContent = count;
+          if (badge) {
+            badge.style.display = 'inline-block';
+            badge.textContent = count;
+          }
+        } else {
+          banner.style.display = 'none';
+          if (badge) badge.style.display = 'none';
+        }
+      }
+    } catch (_) {}
+  },
+
+  async loadMaintenanceData() {
+    try {
+      const [schedulesRes, fuelRes] = await Promise.all([
+        this.apiFetch('/api/maintenance/schedules'),
+        this.apiFetch('/api/fuel-logs')
+      ]);
+
+      if (schedulesRes.ok) {
+        const data = await schedulesRes.json();
+        const tbody = document.getElementById('maintSchedulesBody');
+        if (tbody) {
+          const list = data.schedules || [];
+          tbody.innerHTML = list.length === 0
+            ? '<tr><td colspan="4" style="text-align:center; color:#64748b;">No maintenance schedules recorded</td></tr>'
+            : list.map(s => `
+              <tr>
+                <td><strong>${this.escape(s.registration_number || s.vehicle_id)}</strong></td>
+                <td>${this.escape(s.service_type)}</td>
+                <td>${s.due_date || (s.due_odometer ? s.due_odometer + ' km' : '—')}</td>
+                <td><span class="badge badge-${s.status}">${s.status}</span></td>
+              </tr>
+            `).join('');
+        }
+      }
+
+      if (fuelRes.ok) {
+        const data = await fuelRes.json();
+        const tbody = document.getElementById('fuelLogsBody');
+        if (tbody) {
+          const list = data.fuelLogs || [];
+          tbody.innerHTML = list.length === 0
+            ? '<tr><td colspan="5" style="text-align:center; color:#64748b;">No fuel logs recorded</td></tr>'
+            : list.map(f => `
+              <tr>
+                <td><strong>${this.escape(f.registration_number || f.vehicle_id)}</strong></td>
+                <td>${this.escape(f.driver_name || f.driver_id)}</td>
+                <td>${f.liters} L</td>
+                <td>${Number(f.cost).toFixed(2)}</td>
+                <td>${f.odometer} km</td>
+              </tr>
+            `).join('');
+        }
+      }
+    } catch (err) {
+      this.showToast(err.message, 'error');
+    }
+  },
+
+  async loadOutboxData() {
+    try {
+      const res = await this.apiFetch('/api/notifications/outbox');
+      if (!res.ok) throw new Error('Failed to load notification outbox');
+      const data = await res.json();
+      const tbody = document.getElementById('outboxBody');
+      if (tbody) {
+        const entries = data.entries || [];
+        tbody.innerHTML = entries.length === 0
+          ? '<tr><td colspan="8" style="text-align:center; color:#64748b;">Outbox is empty</td></tr>'
+          : entries.map(e => `
+            <tr>
+              <td><code>${this.escape(e.id)}</code></td>
+              <td><strong>${this.escape(e.delivery_id)}</strong></td>
+              <td>${this.escape(e.event)}</td>
+              <td>${this.escape(e.channel)}</td>
+              <td>${this.escape(e.recipient)}</td>
+              <td><span class="badge badge-${e.status}">${e.status}</span></td>
+              <td>${e.attempts}/${e.max_attempts}</td>
+              <td>${e.sent_at || 'Pending'}</td>
+            </tr>
+          `).join('');
+      }
+    } catch (err) {
+      this.showToast(err.message, 'error');
+    }
+  },
+
+  async downloadReport(type, format) {
+    try {
+      this.showToast(`Generating ${type} report...`, 'info');
+      const res = await this.apiFetch(`/api/reports/${type}/${format}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Report generation failed');
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fleetwise-${type}-${Date.now()}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      this.showToast('Report downloaded successfully', 'success');
+    } catch (err) {
+      this.showToast(err.message, 'error');
+    }
   },
 
   showToast(message, type = 'info') {

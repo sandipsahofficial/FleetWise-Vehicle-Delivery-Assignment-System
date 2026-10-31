@@ -135,6 +135,15 @@ class AssignmentService {
         UPDATE drivers SET availability_status = 'assigned', updated_at = DATETIME('now') WHERE id = ?
       `).run(driverId);
 
+      // Enqueue notification outbox record in the SAME atomic transaction
+      try {
+        const notificationService = require('./notificationService');
+        notificationService.enqueueNotification(db, {
+          deliveryId,
+          event: 'delivery_assigned'
+        });
+      } catch (_) {}
+
       db.exec('COMMIT');
 
       // Audit log
