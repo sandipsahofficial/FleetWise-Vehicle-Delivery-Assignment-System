@@ -5,20 +5,33 @@ class NotificationRepository {
   // -------------------------------------------------------------
   // Customer Contacts
   // -------------------------------------------------------------
-  upsertContact({ delivery_id, name, email, phone = null, consent = 1 }) {
+  upsertContact({ delivery_id, name, email, phone = null, consent = 0, recorded_by = 'dispatcher' }) {
     const db = getDb();
     const id = `CST-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+    const consentVal = consent ? 1 : 0;
+    const consentAt = consentVal ? new Date().toISOString() : null;
 
     db.prepare(`
-      INSERT INTO customer_contacts (id, delivery_id, name, email, phone, consent, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, DATETIME('now'))
+      INSERT INTO customer_contacts (id, delivery_id, name, email, phone, consent, consent_at, consent_recorded_by, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'))
       ON CONFLICT(delivery_id) DO UPDATE SET
         name = excluded.name,
         email = excluded.email,
         phone = excluded.phone,
         consent = excluded.consent,
+        consent_at = excluded.consent_at,
+        consent_recorded_by = excluded.consent_recorded_by,
         updated_at = DATETIME('now')
-    `).run(id, delivery_id, name, email, phone, consent ? 1 : 0);
+    `).run(id, delivery_id, name, email, phone, consentVal, consentAt, recorded_by);
+
+    // Revoking consent immediately cancels pending outbox notifications for this delivery
+    if (consentVal === 0) {
+      db.prepare(`
+        UPDATE notification_outbox
+        SET status = 'cancelled', error_message = 'Customer revoked notification consent', locked_until = NULL, params_json = NULL
+        WHERE delivery_id = ? AND status IN ('pending', 'processing')
+      `).run(delivery_id);
+    }
 
     return this.findByDeliveryId(delivery_id);
   }
@@ -41,8 +54,16 @@ class NotificationRepository {
           email = 'anonymized@fleetwise.local',
           phone = NULL,
           consent = 0,
+          consent_at = NULL,
+          consent_recorded_by = 'system_gdpr',
           updated_at = DATETIME('now')
       WHERE delivery_id = ?
+    `).run(deliveryId);
+
+    db.prepare(`
+      UPDATE notification_outbox
+      SET status = 'cancelled', error_message = 'Customer opted out / contact anonymized', locked_until = NULL, params_json = NULL
+      WHERE delivery_id = ? AND status IN ('pending', 'processing')
     `).run(deliveryId);
 
     return this.findByDeliveryId(deliveryId);
@@ -138,6 +159,18 @@ class NotificationRepository {
           params_json = NULL
       WHERE id = ?
     `).run(id);
+  }
+
+  updateStatus(id, status, errorMessage = null) {
+    const db = getDb();
+    db.prepare(`
+      UPDATE notification_outbox
+      SET status = ?,
+          error_message = ?,
+          locked_until = NULL,
+          params_json = NULL
+      WHERE id = ?
+    `).run(status, errorMessage, id);
   }
 
   markFailed(id, errorMessage, delaySeconds = 60) {

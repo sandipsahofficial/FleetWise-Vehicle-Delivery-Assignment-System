@@ -185,7 +185,9 @@ function initDatabase(customPath) {
       name TEXT NOT NULL,
       email TEXT NOT NULL,
       phone TEXT,
-      consent INTEGER NOT NULL DEFAULT 1,
+      consent INTEGER NOT NULL DEFAULT 0,
+      consent_at TEXT,
+      consent_recorded_by TEXT,
       created_at TEXT NOT NULL DEFAULT (DATETIME('now')),
       updated_at TEXT NOT NULL DEFAULT (DATETIME('now'))
     );
@@ -200,7 +202,7 @@ function initDatabase(customPath) {
       recipient TEXT NOT NULL,
       template TEXT NOT NULL,
       params_json TEXT,
-      status TEXT NOT NULL CHECK(status IN ('pending', 'processing', 'sent', 'failed')) DEFAULT 'pending',
+      status TEXT NOT NULL CHECK(status IN ('pending', 'processing', 'sent', 'failed', 'cancelled', 'skipped')) DEFAULT 'pending',
       attempts INTEGER NOT NULL DEFAULT 0,
       max_attempts INTEGER NOT NULL DEFAULT 3,
       idempotency_key TEXT UNIQUE NOT NULL,
@@ -282,6 +284,19 @@ function initDatabase(customPath) {
     const hasDriverId = userColInfo.some(c => c.name === 'driver_id');
     if (!hasDriverId) {
       db.exec("ALTER TABLE users ADD COLUMN driver_id TEXT REFERENCES drivers(id) ON DELETE SET NULL;");
+    }
+  } catch (_) {}
+
+  // Safe migration for customer_contacts consent columns
+  try {
+    const contactCols = db.prepare("PRAGMA table_info(customer_contacts)").all();
+    if (contactCols.length > 0) {
+      if (!contactCols.some(c => c.name === 'consent_at')) {
+        db.exec("ALTER TABLE customer_contacts ADD COLUMN consent_at TEXT;");
+      }
+      if (!contactCols.some(c => c.name === 'consent_recorded_by')) {
+        db.exec("ALTER TABLE customer_contacts ADD COLUMN consent_recorded_by TEXT;");
+      }
     }
   } catch (_) {}
 

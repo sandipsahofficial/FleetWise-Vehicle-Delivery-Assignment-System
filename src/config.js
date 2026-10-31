@@ -7,6 +7,9 @@ if (
   process.argv.some(arg => arg.includes('tests') || arg.endsWith('.test.js'))
 ) {
   process.env.NODE_ENV = 'test';
+  if (process.env.ALLOW_DEMO_SEED === undefined) {
+    process.env.ALLOW_DEMO_SEED = 'true';
+  }
 }
 
 const DEFAULT_JWT_SECRET = 'supersecret_fleetwise_jwt_access_token_key_change_in_production';

@@ -7,14 +7,15 @@ const smsProvider = require('./notifications/providers/sms');
 const waProvider = require('./notifications/providers/wa');
 const { escapeHtml, sanitizeHeader } = require('./notifications/providers/email');
 const logger = require('../utils/logger');
+const config = require('../config');
 const { BadRequestError, NotFoundError } = require('../utils/errors');
 
 class NotificationService {
   /**
-   * Registers customer contact details for a delivery.
-   * Consent defaults to true unless opted out.
+   * Registers or updates customer contact details for a delivery.
+   * Consent defaults to 0 (off) unless explicitly opted in.
    */
-  registerContact(deliveryId, { name, email, phone = null, consent = 1 }) {
+  registerContact(deliveryId, { name, email, phone = null, consent = 0 }, recordedBy = 'dispatcher') {
     if (!deliveryId) throw new BadRequestError('Delivery ID is required');
     if (!name || !name.trim()) throw new BadRequestError('Customer name is required');
     if (!email || !email.includes('@')) throw new BadRequestError('Valid email address is required');
@@ -24,7 +25,8 @@ class NotificationService {
       name: sanitizeHeader(name),
       email: sanitizeHeader(email).toLowerCase(),
       phone: phone ? sanitizeHeader(phone) : null,
-      consent: consent ? 1 : 0
+      consent: consent ? 1 : 0,
+      recorded_by: recordedBy || 'dispatcher'
     });
   }
 
@@ -46,9 +48,14 @@ class NotificationService {
 
   /**
    * Enqueues an outbox row within an existing DB transaction.
+   * Respects config.notifications.enabled and customer consent.
    * Never stores raw plaintext OTPs or sensitive tokens in the database parameters.
    */
   enqueueNotification(db, { deliveryId, event, channel = 'email', template }) {
+    if (config.notifications && config.notifications.enabled === false) {
+      return null;
+    }
+
     const contact = notificationRepository.findByDeliveryId(deliveryId);
     if (!contact || contact.consent !== 1) {
       // Respect consent: never enqueue if opted out or no contact registered
@@ -138,3 +145,4 @@ class NotificationService {
 }
 
 module.exports = new NotificationService();
+

@@ -8,10 +8,20 @@ const auditService = require('./auditService');
 const { BadRequestError, NotFoundError, ConflictError } = require('../utils/errors');
 
 class AssignmentService {
-  assignDelivery(deliveryId, vehicleId, driverId, performedBy = 'dispatcher') {
+  assignDelivery(deliveryId, vehicleId, driverId, performedByOrOptions = 'dispatcher', possibleOptions = {}) {
     if (!deliveryId) throw new BadRequestError('Delivery ID is required');
     if (!vehicleId) throw new BadRequestError('Vehicle ID is required');
     if (!driverId) throw new BadRequestError('Driver ID is required');
+
+    let performedBy = 'dispatcher';
+    let options = {};
+    if (typeof performedByOrOptions === 'object' && performedByOrOptions !== null) {
+      options = performedByOrOptions;
+      performedBy = options.performedBy || 'dispatcher';
+    } else {
+      performedBy = performedByOrOptions || 'dispatcher';
+      options = possibleOptions || {};
+    }
 
     const db = getDb();
 
@@ -87,6 +97,34 @@ class AssignmentService {
         }
       }
 
+      // Check overdue maintenance: warn and require override with reason
+      const hasOverdue = db.prepare(`
+        SELECT ms.id, ms.service_type, ms.due_date, ms.due_odometer
+        FROM maintenance_schedules ms
+        WHERE ms.vehicle_id = ?
+          AND (
+            ms.status = 'overdue'
+            OR (ms.status = 'pending' AND (
+                 (ms.due_date IS NOT NULL AND ms.due_date <= DATE('now'))
+              OR (ms.due_odometer IS NOT NULL AND ms.due_odometer <= ?)
+            ))
+          )
+        LIMIT 1
+      `).get(vehicleId, Number(vehicle.odometer || 0));
+
+      let overdueOverrideApproved = false;
+      if (hasOverdue) {
+        if (!options.override_overdue_maintenance) {
+          throw new ConflictError(
+            `Vehicle '${vehicle.registration_number}' has overdue maintenance ('${hasOverdue.service_type}'). Operational override with reason required.`
+          );
+        }
+        if (!options.override_reason || typeof options.override_reason !== 'string' || options.override_reason.trim().length < 10) {
+          throw new BadRequestError('An override reason of at least 10 characters is required to assign a vehicle with overdue maintenance');
+        }
+        overdueOverrideApproved = true;
+      }
+
       // 3. Verify driver eligibility
       const driverStmt = db.prepare('SELECT * FROM drivers WHERE id = ?');
       const driver = driverStmt.get(driverId);
@@ -157,6 +195,18 @@ class AssignmentService {
         details: `Assigned vehicle ${vehicle.registration_number} (${vehicle.type}) and driver ${driver.name} to delivery ${deliveryId}`
       });
 
+      if (overdueOverrideApproved) {
+        auditService.log({
+          entity_type: 'assignment',
+          entity_id: assignmentId,
+          action: 'ASSIGNMENT_OVERDUE_OVERRIDE',
+          old_state: null,
+          new_state: { delivery_id: deliveryId, vehicle_id: vehicleId },
+          performed_by: performedBy,
+          details: `Overdue maintenance override approved: ${options.override_reason.trim()}`
+        });
+      }
+
       // Fetch fresh updated records
       const updatedDelivery = deliveryRepository.findById(deliveryId);
       const updatedVehicle = vehicleRepository.findById(vehicleId);
@@ -200,6 +250,18 @@ class AssignmentService {
     const reqCap = Number(delivery.required_capacity || 0);
     const reqType = delivery.required_vehicle_type ? delivery.required_vehicle_type.trim().toLowerCase() : null;
 
+    // Check overdue maintenance to rank overdue vehicles lower
+    const overdueList = db.prepare(`
+      SELECT DISTINCT vehicle_id
+      FROM maintenance_schedules
+      WHERE status = 'overdue'
+         OR (status = 'pending' AND (
+              (due_date IS NOT NULL AND due_date <= DATE('now'))
+           OR (due_odometer IS NOT NULL AND due_odometer <= (SELECT odometer FROM vehicles WHERE id = maintenance_schedules.vehicle_id))
+         ))
+    `).all().map(r => r.vehicle_id);
+    const overdueSet = new Set(overdueList);
+
     const availableVehicles = db.prepare(`
       SELECT v.*
       FROM vehicles v
@@ -217,14 +279,16 @@ class AssignmentService {
       })
       .map(v => {
         const capacityDelta = Number(v.capacity) - reqCap;
+        const isOverdue = overdueSet.has(v.id);
         return {
           id: v.id,
           registration_number: v.registration_number,
           type: v.type,
           capacity: Number(v.capacity),
           capacity_delta: capacityDelta,
-          score: capacityDelta, // Lowest delta = closest capacity match
-          criteria: `Capacity ${v.capacity}kg matches requirement (${reqCap}kg). Best-fit delta: +${capacityDelta}kg`
+          has_overdue_maintenance: isOverdue,
+          score: capacityDelta + (isOverdue ? 10000 : 0), // Overdue vehicles ranked lower
+          criteria: `Capacity ${v.capacity}kg matches requirement (${reqCap}kg). Best-fit delta: +${capacityDelta}kg${isOverdue ? ' [WARNING: Overdue maintenance scheduled]' : ''}`
         };
       })
       .sort((a, b) => a.score - b.score);

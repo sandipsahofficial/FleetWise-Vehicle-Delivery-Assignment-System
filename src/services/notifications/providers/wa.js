@@ -8,3 +8,4 @@ class WhatsAppProvider {
 }
 
 module.exports = new WhatsAppProvider();
+

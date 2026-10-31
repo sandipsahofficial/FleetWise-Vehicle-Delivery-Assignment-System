@@ -72,3 +72,4 @@ module.exports = new EmailProvider();
 module.exports.EmailProvider = EmailProvider;
 module.exports.escapeHtml = escapeHtml;
 module.exports.sanitizeHeader = sanitizeHeader;
+

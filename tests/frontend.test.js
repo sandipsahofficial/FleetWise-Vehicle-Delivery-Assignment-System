@@ -5,6 +5,7 @@ const app = require('../src/app');
 const { resetDbForTesting } = require('../src/db/database');
 
 test('Phase 5 - Frontend Static Serving & Demo Seeding', async (t) => {
+  process.env.ALLOW_DEMO_SEED = 'true';
   resetDbForTesting();
 
   const server = http.createServer(app);

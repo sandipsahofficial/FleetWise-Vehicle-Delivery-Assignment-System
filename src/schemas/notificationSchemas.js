@@ -6,7 +6,16 @@ const registerContactSchema = {
     name: z.string().trim().min(1, 'Customer name is required'),
     email: z.string().trim().email('Valid email address is required'),
     phone: z.string().trim().optional().nullable(),
-    consent: z.coerce.boolean().optional()
+    consent: z.coerce.boolean().optional().default(false)
+  })
+};
+
+const updateContactSchema = {
+  body: z.object({
+    name: z.string().trim().min(1, 'Customer name is required'),
+    email: z.string().trim().email('Valid email address is required'),
+    phone: z.string().trim().optional().nullable(),
+    consent: z.coerce.boolean().optional().default(false)
   })
 };
 
@@ -20,5 +29,7 @@ const queryOutboxSchema = {
 
 module.exports = {
   registerContactSchema,
+  updateContactSchema,
   queryOutboxSchema
 };
+

@@ -36,6 +36,13 @@ class OutboxWorker {
 
     for (const entry of batch) {
       try {
+        // Verify customer consent: if customer contact exists and consent is 0, cancel/skip
+        const contact = notificationRepository.findByDeliveryId(entry.delivery_id);
+        if (contact && Number(contact.consent) === 0) {
+          notificationRepository.updateStatus(entry.id, 'cancelled', 'Customer consent revoked or not granted');
+          continue;
+        }
+
         await notificationService.processOutboxEntry(entry);
         notificationRepository.markSent(entry.id);
         sent++;
@@ -88,3 +95,4 @@ class OutboxWorker {
 
 module.exports = new OutboxWorker();
 module.exports.OutboxWorker = OutboxWorker;
+

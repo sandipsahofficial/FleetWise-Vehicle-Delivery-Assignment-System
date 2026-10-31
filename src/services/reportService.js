@@ -1,7 +1,9 @@
 const PDFDocument = require('pdfkit');
 const { getDb } = require('../db/database');
 const auditService = require('./auditService');
-const { BadRequestError } = require('../utils/errors');
+const { BadRequestError, PayloadTooLargeError } = require('../utils/errors');
+
+const MAX_REPORT_ROWS = 5000;
 
 /**
  * Sanitizes a single cell value to prevent CSV Formula Injection (CWE-1236)
@@ -78,7 +80,16 @@ class ReportService {
       params.push(filters.end_date);
     }
 
-    query += ' ORDER BY d.created_at DESC LIMIT 5000';
+    // Run COUNT before streaming to enforce row cap and never truncate silently
+    let countQuery = 'SELECT COUNT(*) as total FROM deliveries d WHERE 1=1';
+    if (filters.start_date) countQuery += ' AND d.created_at >= ?';
+    if (filters.end_date) countQuery += ' AND d.created_at <= ?';
+    const totalCount = db.prepare(countQuery).get(...params).total;
+    if (totalCount > MAX_REPORT_ROWS) {
+      throw new PayloadTooLargeError(`Report query matched ${totalCount} records, exceeding the maximum export limit of 5,000 rows. Please narrow the date range or filters.`);
+    }
+
+    query += ' ORDER BY d.created_at DESC';
     const rows = db.prepare(query).all(...params);
 
     let csv = buildCsvRow([
@@ -127,6 +138,11 @@ class ReportService {
     validateDateRange(filters.start_date, filters.end_date);
     const db = getDb();
 
+    const countDrivers = db.prepare('SELECT COUNT(*) as total FROM drivers').get().total;
+    if (countDrivers > MAX_REPORT_ROWS) {
+      throw new PayloadTooLargeError(`Report query matched ${countDrivers} records, exceeding the maximum export limit of ${MAX_REPORT_ROWS} rows.`);
+    }
+
     const query = `
       SELECT d.id, d.name, d.phone, d.availability_status,
              COUNT(a.id) as total_assignments,
@@ -135,7 +151,6 @@ class ReportService {
       LEFT JOIN assignments a ON a.driver_id = d.id
       LEFT JOIN deliveries del ON del.id = a.delivery_id
       GROUP BY d.id
-      LIMIT 5000
     `;
     const rows = db.prepare(query).all();
 
@@ -177,13 +192,17 @@ class ReportService {
     validateDateRange(filters.start_date, filters.end_date);
     const db = getDb();
 
+    const countVehicles = db.prepare('SELECT COUNT(*) as total FROM vehicles').get().total;
+    if (countVehicles > MAX_REPORT_ROWS) {
+      throw new PayloadTooLargeError(`Report query matched ${countVehicles} records, exceeding the maximum export limit of ${MAX_REPORT_ROWS} rows.`);
+    }
+
     const query = `
       SELECT v.id, v.registration_number, v.type, v.capacity, v.odometer, v.status,
              COUNT(a.id) as total_trips
       FROM vehicles v
       LEFT JOIN assignments a ON a.vehicle_id = v.id
       GROUP BY v.id
-      LIMIT 5000
     `;
     const rows = db.prepare(query).all();
 
@@ -229,6 +248,11 @@ class ReportService {
     validateDateRange(filters.start_date, filters.end_date);
     const db = getDb();
 
+    const countFuel = db.prepare('SELECT COUNT(*) as total FROM fuel_logs').get().total;
+    if (countFuel > MAX_REPORT_ROWS) {
+      throw new PayloadTooLargeError(`Report query matched ${countFuel} records, exceeding the maximum export limit of ${MAX_REPORT_ROWS} rows.`);
+    }
+
     let query = `
       SELECT f.id, 'fuel' as record_type, f.vehicle_id, v.registration_number,
              f.liters, f.cost, f.odometer, f.logged_at as event_date,
@@ -236,7 +260,6 @@ class ReportService {
       FROM fuel_logs f
       JOIN vehicles v ON v.id = f.vehicle_id
       LEFT JOIN drivers d ON d.id = f.driver_id
-      LIMIT 5000
     `;
     const rows = db.prepare(query).all();
 
@@ -345,3 +368,4 @@ class ReportService {
 
 module.exports = new ReportService();
 module.exports.sanitizeCsvCell = sanitizeCsvCell;
+

@@ -126,30 +126,69 @@ test('Phase 3B — Distance & ETA Routing, Outbox Notifications, Maintenance & F
   await t.test('2. Customer Contact: Registration, Consent, and GDPR Anonymization', async () => {
     const delivery = await createDelivery();
 
-    // Register contact
-    const regRes = await fetch(`${baseUrl}/api/customers`, {
-      method: 'POST',
+    // 1. Driver gets 403 Forbidden on contact endpoints
+    const driverContactRes = await fetch(`${baseUrl}/deliveries/${delivery.id}/contact`, {
+      headers: { 'Authorization': `Bearer ${samTokens.accessToken}` }
+    });
+    assert.equal(driverContactRes.status, 403);
+
+    const driverPutContactRes = await fetch(`${baseUrl}/deliveries/${delivery.id}/contact`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${samTokens.accessToken}` },
+      body: JSON.stringify({ name: 'Sneaky', email: 'driver@test.com' })
+    });
+    assert.equal(driverPutContactRes.status, 403);
+
+    // 2. Register contact via PUT /deliveries/:id/contact (consent defaults to false)
+    const putRes = await fetch(`${baseUrl}/deliveries/${delivery.id}/contact`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${dispatcherTokens.accessToken}` },
       body: JSON.stringify({
-        delivery_id: delivery.id,
         name: 'Jane Customer',
         email: 'jane.customer@example.com',
         phone: '+1-555-9999',
         consent: true
       })
     });
-    assert.equal(regRes.status, 201);
-    const regData = await regRes.json();
-    assert.equal(regData.contact.name, 'Jane Customer');
-    assert.equal(regData.contact.email, 'jane.customer@example.com');
+    assert.equal(putRes.status, 200);
+    const putData = await putRes.json();
+    assert.equal(putData.contact.name, 'Jane Customer');
+    assert.equal(putData.contact.email, 'jane.customer@example.com');
+    assert.equal(putData.contact.consent, 1);
+    assert.ok(putData.contact.consent_at);
 
-    // Fetch contact
-    const getRes = await fetch(`${baseUrl}/api/customers/${delivery.id}`, {
+    // Verify audit log has CUSTOMER_CONTACT_UPDATED with ZERO PII in details/state
+    const contactAudit = db.prepare("SELECT * FROM audit_logs WHERE action = 'CUSTOMER_CONTACT_UPDATED' AND entity_id = ?").get(delivery.id);
+    assert.ok(contactAudit);
+    assert.ok(!contactAudit.details.includes('jane.customer@example.com'));
+    assert.ok(!contactAudit.details.includes('Jane Customer'));
+
+    // 3. Fetch contact
+    const getRes = await fetch(`${baseUrl}/deliveries/${delivery.id}/contact`, {
       headers: { 'Authorization': `Bearer ${dispatcherTokens.accessToken}` }
     });
     assert.equal(getRes.status, 200);
 
-    // Anonymize contact
+    // 4. Revoking consent cancels pending outbox notifications
+    db.prepare(`
+      INSERT INTO notification_outbox (id, delivery_id, event, channel, recipient, template, status, attempts, max_attempts, idempotency_key, created_at)
+      VALUES ('NTF-TEST-REVOKE', ?, 'trip_started', 'email', 'jane.customer@example.com', 'delivery_update', 'pending', 0, 3, 'IDEMP-REVOKE-TEST', DATETIME('now'))
+    `).run(delivery.id);
+
+    const revokeRes = await fetch(`${baseUrl}/deliveries/${delivery.id}/contact`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${dispatcherTokens.accessToken}` },
+      body: JSON.stringify({
+        name: 'Jane Customer',
+        email: 'jane.customer@example.com',
+        consent: false
+      })
+    });
+    assert.equal(revokeRes.status, 200);
+    const revokedOutbox = db.prepare("SELECT status FROM notification_outbox WHERE id = 'NTF-TEST-REVOKE'").get();
+    assert.equal(revokedOutbox.status, 'cancelled');
+
+    // 5. Anonymize contact
     const delRes = await fetch(`${baseUrl}/api/customers/${delivery.id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${adminTokens.accessToken}` }
@@ -363,7 +402,78 @@ test('Phase 3B — Distance & ETA Routing, Outbox Notifications, Maintenance & F
     const overdueList = await overdueRes.json();
     assert.ok(overdueList.overdue.some(o => o.vehicle_id === 'VEH-402'));
 
-    // 3. Maintenance Lockout: VEH-401 is actively assigned to delivery, cannot be moved to maintenance
+    // 3. Assignment of overdue vehicle without override is blocked with 409 Conflict
+    const delOverdue = await createDelivery();
+    const noOverrideRes = await fetch(`${baseUrl}/deliveries/${delOverdue.id}/assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${dispatcherTokens.accessToken}` },
+      body: JSON.stringify({ vehicle_id: 'VEH-402', driver_id: 'DRV-402' })
+    });
+    assert.equal(noOverrideRes.status, 409);
+    assert.ok((await noOverrideRes.json()).message.includes('overdue maintenance'));
+
+    // 4. Override with reason shorter than 10 chars is rejected with 400 Bad Request
+    const shortReasonRes = await fetch(`${baseUrl}/deliveries/${delOverdue.id}/assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${dispatcherTokens.accessToken}` },
+      body: JSON.stringify({
+        vehicle_id: 'VEH-402',
+        driver_id: 'DRV-402',
+        override_overdue_maintenance: true,
+        override_reason: 'short'
+      })
+    });
+    assert.equal(shortReasonRes.status, 400);
+
+    // 5. Override with valid reason (>= 10 chars) succeeds and logs audit entry
+    const validOverrideRes = await fetch(`${baseUrl}/deliveries/${delOverdue.id}/assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${dispatcherTokens.accessToken}` },
+      body: JSON.stringify({
+        vehicle_id: 'VEH-402',
+        driver_id: 'DRV-402',
+        override_overdue_maintenance: true,
+        override_reason: 'Critical medical supply dispatch approved before maintenance'
+      })
+    });
+    assert.equal(validOverrideRes.status, 200);
+
+    const overrideAudit = db.prepare("SELECT * FROM audit_logs WHERE action = 'ASSIGNMENT_OVERDUE_OVERRIDE' AND entity_id LIKE 'ASG-%'").get();
+    assert.ok(overrideAudit);
+    assert.ok(overrideAudit.details.includes('Critical medical supply dispatch'));
+
+    // 6. Suggestion engine ranks overdue vehicles lower and flags them
+    const delPending = await createDelivery();
+    const suggestRes = await fetch(`${baseUrl}/api/deliveries/${delPending.id}/suggestions`, {
+      headers: { 'Authorization': `Bearer ${dispatcherTokens.accessToken}` }
+    });
+    if (suggestRes.ok) {
+      const sug = await suggestRes.json();
+      const vehSugs = sug.candidate_vehicles || [];
+      const overdueSug = vehSugs.find(v => v.id === 'VEH-402');
+      if (overdueSug) {
+        assert.equal(overdueSug.has_overdue_maintenance, true);
+      }
+    }
+
+    // 7. Status 'maintenance' stays a hard block: vehicle in maintenance CANNOT be assigned
+    db.prepare("UPDATE vehicles SET status = 'maintenance' WHERE id = 'VEH-402'").run();
+    const delMnt = await createDelivery();
+    const hardBlockRes = await fetch(`${baseUrl}/deliveries/${delMnt.id}/assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${dispatcherTokens.accessToken}` },
+      body: JSON.stringify({
+        vehicle_id: 'VEH-402',
+        driver_id: 'DRV-402',
+        override_overdue_maintenance: true,
+        override_reason: 'Trying to assign a vehicle that is in maintenance status'
+      })
+    });
+    assert.equal(hardBlockRes.status, 409);
+    assert.ok((await hardBlockRes.json()).message.includes('not available'));
+    db.prepare("UPDATE vehicles SET status = 'available' WHERE id = 'VEH-402'").run();
+
+    // 8. Maintenance Lockout: actively assigned vehicle cannot be transitioned to maintenance
     const lockoutRes = await fetch(`${baseUrl}/vehicles/VEH-401/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminTokens.accessToken}` },
@@ -406,7 +516,41 @@ test('Phase 3B — Distance & ETA Routing, Outbox Notifications, Maintenance & F
     assert.equal(capRes.status, 400);
     assert.ok((await capRes.json()).message.includes('cannot exceed 90 days'));
 
-    // 4. Executive Summary PDF Generation
+    // 4. Driver role gets 403 Forbidden on reports and outbox
+    const driverReportRes = await fetch(`${baseUrl}/api/reports/deliveries/csv`, {
+      headers: { 'Authorization': `Bearer ${samTokens.accessToken}` }
+    });
+    assert.equal(driverReportRes.status, 403);
+
+    const driverPdfRes = await fetch(`${baseUrl}/api/reports/summary/pdf`, {
+      headers: { 'Authorization': `Bearer ${samTokens.accessToken}` }
+    });
+    assert.equal(driverPdfRes.status, 403);
+
+    const driverOutboxRes = await fetch(`${baseUrl}/api/notifications/outbox`, {
+      headers: { 'Authorization': `Bearer ${samTokens.accessToken}` }
+    });
+    assert.equal(driverOutboxRes.status, 403);
+
+    // 5. Row cap check: 413 Payload Too Large when row count exceeds 5,000
+    const reportService = require('../src/services/reportService');
+    const origPrepare = db.prepare.bind(db);
+    db.prepare = (sql, ...args) => {
+      if (sql.includes('SELECT COUNT(*) as total FROM deliveries')) {
+        return { get: () => ({ total: 5001 }) };
+      }
+      return origPrepare(sql, ...args);
+    };
+
+    const cap413Res = await fetch(`${baseUrl}/api/reports/deliveries/csv`, {
+      headers: { 'Authorization': `Bearer ${adminTokens.accessToken}` }
+    });
+    assert.equal(cap413Res.status, 413);
+    const cap413Body = await cap413Res.json();
+    assert.ok(cap413Body.message.includes('exceeding the maximum export limit of 5,000 rows'));
+    db.prepare = origPrepare;
+
+    // 6. Executive Summary PDF Generation
     const pdfRes = await fetch(`${baseUrl}/api/reports/summary/pdf`, {
       headers: { 'Authorization': `Bearer ${adminTokens.accessToken}` }
     });

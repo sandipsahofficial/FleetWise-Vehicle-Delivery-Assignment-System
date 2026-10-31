@@ -88,4 +88,18 @@ router.get(
   }
 );
 
+// GET /api/notifications/status - Check notification dispatch status
+router.get(
+  '/api/notifications/status',
+  authenticate(),
+  (req, res) => {
+    const config = require('../config');
+    res.status(200).json({
+      enabled: Boolean(config.notifications && config.notifications.enabled !== false),
+      provider: config.notifications?.provider || 'disabled'
+    });
+  }
+);
+
 module.exports = router;
+

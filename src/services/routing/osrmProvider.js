@@ -62,3 +62,4 @@ class OsrmProvider extends RoutingProvider {
 }
 
 module.exports = OsrmProvider;
+

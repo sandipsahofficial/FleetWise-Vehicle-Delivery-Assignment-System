@@ -1032,6 +1032,10 @@
             </div>
           </div>
 
+          <div id="outboxDisabledBanner" class="alert alert-info" style="display:none; margin-top: 14px;">
+            <strong>Notifications Status:</strong> Off (NOTIFICATIONS_ENABLED=false). Transactional notification delivery is currently disabled.
+          </div>
+
           <div class="table-card" style="margin-top: 16px;">
             <div class="table-responsive">
               <table class="data-table zebra" id="outboxTable">
@@ -1168,11 +1172,60 @@
           <small class="form-help">Only drivers with status 'available' can be assigned.</small>
         </div>
 
+        <div id="assignOverdueWarningBox" class="alert alert-warning" style="display:none; margin-bottom: 12px;">
+          <p><strong>Overdue Maintenance Warning:</strong> This vehicle has overdue maintenance scheduled.</p>
+          <div class="form-group" style="margin-top: 8px;">
+            <label for="assignOverrideReason">Override Justification <span class="required">*</span> (min 10 characters):</label>
+            <input type="text" id="assignOverrideReason" class="form-input" placeholder="e.g. Critical high-priority delivery approved before scheduled service" />
+          </div>
+        </div>
+
         <div id="assignConflictNotice" class="alert alert-danger" style="display:none;"></div>
 
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalAssign')">Cancel</button>
           <button type="submit" id="btnSubmitAssign" class="btn btn-primary">Confirm Assignment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MODAL: CUSTOMER CONTACT (Phase 3B / GDPR Consent)
+  ════════════════════════════════════════════════════════ -->
+  <div id="modalCustomerContact" class="modal-overlay" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-labelledby="modalContactTitle">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalContactTitle" class="modal-title">Customer Contact & Consent</h3>
+          <p class="modal-subtitle">Manage customer notification recipient and explicit communication consent</p>
+        </div>
+        <button class="modal-close" onclick="app.closeModal('modalCustomerContact')" aria-label="Close">&times;</button>
+      </div>
+      <form id="formCustomerContact" onsubmit="app.saveCustomerContact(event)">
+        <input type="hidden" id="contactDeliveryId" />
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="contactName">Customer Name <span class="required">*</span></label>
+            <input type="text" id="contactName" class="form-input" placeholder="e.g. John Doe" required />
+          </div>
+          <div class="form-group">
+            <label for="contactEmail">Customer Email <span class="required">*</span></label>
+            <input type="email" id="contactEmail" class="form-input" placeholder="customer@example.com" required />
+          </div>
+          <div class="form-group">
+            <label for="contactPhone">Customer Phone</label>
+            <input type="text" id="contactPhone" class="form-input" placeholder="+1-555-0199" />
+          </div>
+          <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="contactConsent" />
+            <label for="contactConsent" style="margin-bottom: 0;">Customer has explicitly consented to delivery notifications (GDPR/TCPA)</label>
+          </div>
+          <div id="contactMetadataNotice" class="text-muted text-xs" style="margin-top: 6px;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalCustomerContact')">Cancel</button>
+          <button type="submit" id="btnSubmitContact" class="btn btn-primary">Save Contact</button>
         </div>
       </form>
     </div>

@@ -41,3 +41,4 @@ class HaversineProvider extends RoutingProvider {
 }
 
 module.exports = HaversineProvider;
+

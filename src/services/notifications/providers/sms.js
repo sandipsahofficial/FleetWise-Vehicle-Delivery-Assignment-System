@@ -8,3 +8,4 @@ class SmsProvider {
 }
 
 module.exports = new SmsProvider();
+
