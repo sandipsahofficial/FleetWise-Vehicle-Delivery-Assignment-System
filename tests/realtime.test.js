@@ -140,6 +140,8 @@ test('Phase 2 — Real-Time Core: WebSockets, Room Isolation, Post-Commit Events
   // -------------------------------------------------------------
   await t.test('2. Room Joining & Role-Based Event Isolation', async (t2) => {
     const adminSocket = connectClient(adminTokens.accessToken);
+    const { resetRateLimits } = require('../src/realtime/socket');
+    resetRateLimits();
     const driverASocket = connectClient(driverATokens.accessToken);
     const driverBSocket = connectClient(driverBTokens.accessToken);
 
@@ -508,7 +510,7 @@ test('Phase 2 — Real-Time Core: WebSockets, Room Isolation, Post-Commit Events
     const ack1 = await new Promise((res) => {
       driverASocket.emit('driver:location_update', { lat: 40.71, lng: -74.01 }, res);
     });
-    assert.ok(ack1.success);
+    assert.ok(ack1 && ack1.success, `ack1 failed: ${ack1 ? ack1.error : 'no ack'}`);
 
     // Immediately send 2nd update (< 200ms throttle)
     const ack2 = await new Promise((res) => {

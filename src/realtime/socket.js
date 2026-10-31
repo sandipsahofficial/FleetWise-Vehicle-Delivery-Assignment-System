@@ -145,7 +145,12 @@ function getIO() {
   return ioInstance;
 }
 
+function resetRateLimits() {
+  locationRateLimits.clear();
+}
+
 module.exports = {
   initSocket,
-  getIO
+  getIO,
+  resetRateLimits
 };
