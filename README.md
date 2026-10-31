@@ -1,349 +1,285 @@
-# FleetWise — Vehicle & Delivery Assignment System
+# FleetWise — Real-Time Fleet Management & Delivery Dispatch System
 
-FleetWise is a high-reliability, responsive fleet-management and delivery-dispatch web application. It automates and safeguards vehicle and driver allocations, enforcing business rules, atomic database concurrency controls, and lifecycle integrity.
-
----
-
-## 1. System Architecture & Tech Stack
-
-```
-               ┌────────────────────────────────────────────────────────┐
-               │         Responsive Web UI (HTML5 / CSS3 / Vanilla JS)   │
-               │   • Operational Dashboard & Real-Time KPI Cards        │
-               │   • Dynamic Visual Delivery Status Breakdown           │
-               │   • Filterable Tables & Interactive Assignment Modals   │
-               └───────────────────────────┬────────────────────────────┘
-                                           │ HTTP / JSON API
-               ┌───────────────────────────▼────────────────────────────┐
-               │              Express Application Layer                 │
-               │   • CORS, JSON body parsing, Centralized Error Handler │
-               │   • Routes: /vehicles, /drivers, /deliveries, /health  │
-               └───────────────────────────┬────────────────────────────┘
-                                           │
-               ┌───────────────────────────▼────────────────────────────┐
-               │                Domain Service Layer                    │
-               │   • Strict Delivery Lifecycle State Machine            │
-               │   • Assignment Validation & Conflict Prevention        │
-               │   • Safe Resource Release Calculation                  │
-               └───────────────────────────┬────────────────────────────┘
-                                           │
-               ┌───────────────────────────▼────────────────────────────┐
-               │             SQLite Physical Engine                     │
-               │   • Synchronous ACID Transactions (BEGIN IMMEDIATE)    │
-               │   • Foreign Key Constraints (PRAGMA foreign_keys = ON) │
-               │   • Partial Unique Indexes for Double-Booking Defense  │
-               │   • Write-Ahead Logging (WAL Mode)                     │
-               └────────────────────────────────────────────────────────┘
-```
-
-### Stack Selection & Rationale
-- **Runtime**: **Node.js v22.13.0+ or Node.js v24+** with **Express (v5.3.0)**. Provides a lightweight, high-performance HTTP server with standard middleware support.
-- **Database**: Built-in **`node:sqlite` (`DatabaseSync`)**. Delivers zero-dependency, local file-based ACID transactions without requiring external C++ build tooling or Python node-gyp compilers. Requires Node.js 22.13+ or 24+.
-- **Concurrency & Integrity Controls**:
-  - `PRAGMA journal_mode = WAL;` and `PRAGMA foreign_keys = ON;`
-  - Atomic transactions via `BEGIN IMMEDIATE` ensuring exclusive write locking during assignment allocation.
-  - **Partial Unique Indexes** at the SQLite schema level:
-    ```sql
-    CREATE UNIQUE INDEX idx_active_assign_vehicle ON assignments(vehicle_id) WHERE is_active = 1;
-    CREATE UNIQUE INDEX idx_active_assign_driver ON assignments(driver_id) WHERE is_active = 1;
-    CREATE UNIQUE INDEX idx_active_assign_delivery ON assignments(delivery_id) WHERE is_active = 1;
-    ```
-    This guarantees that neither a vehicle nor a driver can ever be double-booked, even under concurrent requests.
-- **Frontend**: Clean, dependency-free responsive SPA (`index.html`, `style.css`, `app.js`). Loads instantly, requires zero bundling steps, and communicates directly with the REST API.
-- **Testing Engine**: Built-in Node test runner (`node:test`) and assert library (`node:assert/strict`).
+FleetWise is an enterprise-grade, real-time fleet management, vehicle routing, and delivery dispatch platform built with Node.js, Express, `node:sqlite`, and Socket.IO. It guarantees zero double-booking through atomic ACID transactions, isolates operations with granular Role-Based Access Control (RBAC), tracks telematics in real time, and provides cryptographic proof-of-delivery with an offline disaster recovery pipeline.
 
 ---
 
-## 2. Mandatory Business Rules & Delivery Lifecycle
+## 1. System Architecture
 
-### Delivery Lifecycle State Machine
+```mermaid
+flowchart TD
+    subgraph Clients["Clients & Presentation"]
+        AdminUI["Dispatcher & Admin Dashboard<br/>(Vanilla JS / Leaflet / Socket.IO)"]
+        DriverPWA["Driver Mobile PWA<br/>(/driver - Geolocation & Proof)"]
+        CustomerUI["Customer Tracking Portal<br/>(/track/:token - Data-Minimized)"]
+    end
 
+    subgraph Security["Edge & Security Layer"]
+        Helmet["Helmet CSP & Security Headers"]
+        Cors["CORS Policy & Exposed Headers"]
+        ReqId["Request ID Middleware (X-Request-ID)"]
+        RateLimiter["IP Rate Limiters (Auth, API, Tracking)"]
+        AuthBridge["Dual-Mode Auth (Bearer JWT / Refresh Rotation)"]
+        RBAC["Role-Based Access Control (Admin / Dispatcher / Driver)"]
+    end
+
+    subgraph CoreEngine["Application & Domain Core"]
+        AppServer["Express 5 HTTP & API Engine"]
+        RealtimeCore["Socket.IO Server (Role-Scoped Rooms)"]
+        StateEngine["Delivery State Machine<br/>(pending ➔ assigned ➔ in_transit ➔ delivered)"]
+        AssignEngine["Assignment Engine (Conflict & Maintenance Checks)"]
+        SuggestEngine["Smart Suggestion Engine (Scoring & Ranking)"]
+        ProofEngine["Proof of Delivery (HMAC OTP & Magic-Byte Photo)"]
+        RoutingEngine["Routing Service (OSRM / Haversine)"]
+    end
+
+    subgraph AsyncWorker["Background & Telemetry"]
+        OutboxWorker["Transactional Outbox Worker (Lease & Backoff)"]
+        NotificationProviders["Notification Channels (SMTP, SMS, WA)"]
+    end
+
+    subgraph Storage["Persistence & Integrity"]
+        SQLite[("node:sqlite (DatabaseSync)<br/>WAL Mode & Foreign Keys ON")]
+        Indexes["Partial Unique Active Assignment Indexes"]
+        AuditTrail[("Append-Only Audit Log")]
+        ProofsDir[("Encrypted & Sanitized Storage (/data/proofs)")]
+        Backups[("Offline Hot Backups (VACUUM INTO /data/backups)")]
+    end
+
+    Clients --> Security
+    Security --> CoreEngine
+    CoreEngine --> SQLite
+    CoreEngine --> RealtimeCore
+    CoreEngine --> ProofsDir
+    CoreEngine --> AsyncWorker
+    AsyncWorker --> NotificationProviders
+    AsyncWorker --> SQLite
+    SQLite --> Indexes
+    SQLite --> AuditTrail
+    SQLite --> Backups
 ```
-              ┌─────────┐
-              │ Pending │
-              └────┬────┘
-                   │
-         ┌─────────┴─────────┐
-         │ (Assign Resource) │ (Cancel)
-         ▼                   ▼
-    ┌──────────┐        ┌───────────┐
-    │ Assigned │        │ Cancelled │
-    └────┬─────┘        └───────────┘
-         │                   ▲
-         ├───────────────────┤ (Cancel + Release)
-         │ (Dispatch)        │
-         ▼                   │
-   ┌────────────┐            │
-   │ In Transit ├────────────┘
-   └─────┬──────┘
-         │ (Complete)
-         ▼
-    ┌───────────┐
-    │ Delivered │
-    └───────────┘
-```
-
-### Core Business Rules
-1. **Assignment Criteria**:
-   - The delivery exists and status is `pending`.
-   - The vehicle exists and status is `available`.
-   - The driver exists and status is `available`.
-   - Neither the vehicle nor the driver is allocated to another active assignment (`is_active = 1`).
-2. **Atomic State Updates**:
-   - When an assignment succeeds, delivery becomes `assigned`, vehicle becomes `assigned`, and driver becomes `assigned` in a single transaction.
-   - If validation fails, an HTTP `409 Conflict` (or `400/404`) is returned, and all database tables remain untouched (atomic rollback).
-3. **Safe Resource Release**:
-   - When a delivery reaches `delivered` or `cancelled`, the active assignment record is marked inactive (`is_active = 0`, `released_at = DATETIME('now')`).
-   - Vehicle and driver statuses are recalculated: if no other active assignments exist and vehicle was in `assigned` status, it returns to `available`.
-   - **Protection Rule**: Resources in `maintenance`, `inactive`, or `unavailable` are **never** overwritten with `available`.
-4. **Maintenance Lockout**:
-   - A vehicle or driver cannot be switched to `maintenance`, `inactive`, or `unavailable` while an active assignment exists.
 
 ---
 
-## 3. Quick Start & Execution
+## 2. Features by User Role
+
+### Administrator
+- **User & Access Management**: Provision and manage users with role assignments (`admin`, `dispatcher`, `driver`).
+- **Fleet Management**: Vehicle CRUD, status transitions, maintenance scheduling, and odometer monitoring.
+- **Auditing & Governance**: Complete immutable audit trail (`GET /api/audit-logs`) with caller identity, IP, user agent, and zero PII leakage.
+- **Reporting & Business Intelligence**: Executive summary PDF and high-performance streaming CSV reports for delivery performance, driver productivity, and fleet utilization (enforces HTTP 413 on >5,000 rows).
+- **Disaster Recovery**: Execution of offline backups (`VACUUM INTO`) and verification of snapshot integrity (`PRAGMA integrity_check`).
+
+### Dispatcher
+- **Live Operations Dashboard**: Real-time KPI counters, delivery breakdown, and interactive Leaflet map rendering driver positions.
+- **Atomic Assignment**: Assign vehicles and drivers with conflict prevention. Overdue maintenance checks with mandatory reason override logging (`ASSIGNMENT_OVERDUE_OVERRIDE`).
+- **Smart Suggestion Engine**: Automated scoring prioritizing vehicle capacity fit, availability, and penalizing overdue maintenance.
+- **Customer Contact & Consent**: Manage customer delivery contact details and opt-in consent (`GET/PUT /deliveries/:id/contact`). Pending notifications auto-cancel upon consent revocation.
+- **Emergency OTP Regeneration**: Securely regenerate delivery verification codes if a recipient loses their SMS/Email.
+
+### Driver (Mobile PWA at `/driver`)
+- **Mobile-First Experience**: Progressive Web App with offline service worker shell caching.
+- **Scoped Deliveries**: Strict driver isolation—drivers can only view and update their own assigned orders.
+- **Live Telematics**: One-tap background geolocation tracking (`navigator.geolocation`) with manual start/stop controls.
+- **Proof of Delivery Submission**:
+  - **OTP Verification**: Enter customer's 6-digit OTP verified via server-side HMAC-SHA256 with 5-attempt brute-force lockout.
+  - **Photo Proof**: Capture and upload delivery photo with magic byte verification (JPEG/PNG/WebP), EXIF metadata stripping, and 5MB payload limit.
+
+### Customer (Public Tracking at `/track/:token`)
+- **Privacy-Preserving Live Tracking**: View order status, estimated delivery time (ETA), and driver location on an interactive map.
+- **Data Minimization**: Strict customer privacy protection—full pickup/dropoff street addresses, internal identifiers, and verification OTPs are strictly excluded from public responses.
+
+---
+
+## 3. Technology Stack & Architecture Rationale
+
+| Layer | Component | Rationale |
+| :--- | :--- | :--- |
+| **Runtime** | Node.js v22.13.0+ or v24+ | Required for native `node:sqlite` (`DatabaseSync`) support without external C++ compilation. |
+| **HTTP Framework** | Express v5.3.0 | Modern promise-aware request routing, robust middleware chaining, and HTTP standard compliance. |
+| **Database** | `node:sqlite` (`DatabaseSync`) | Zero-dependency, ultra-fast embedded ACID engine with WAL mode and synchronous conflict isolation. |
+| **Real-Time** | Socket.IO v4.8+ | WebSocket transport with fallback, room isolation (`ops_room`, driver rooms), and JWT token handshake auth. |
+| **Logging** | Pino & Pino-HTTP | High-throughput structured JSON logging with built-in PII and secret redaction. |
+| **Security** | Helmet & RateLimit | Strict Content Security Policy (CSP), CORS exposure controls, and IP-based brute-force defenses. |
+| **Validation** | Zod | Declarative, schema-based runtime validation for API inputs, environment configs, and coordinate bounds. |
+
+---
+
+## 4. Single-Instance Deployment Guide
+
+> [!WARNING]
+> **Single-Instance Deployment Required**:
+> FleetWise uses `node:sqlite` with write-ahead logging (WAL), in-memory rate limiting, and local Socket.IO rooms. It **must be deployed as a single instance with a persistent volume** mounted for data persistence. **Do NOT scale to multiple concurrent replica instances**, as SQLite file locks are not network-shareable.
+
+### Deploying to Render
+1. Create a **Web Service** connected to your repository.
+2. Select **Docker** environment.
+3. Attach a **Persistent Disk**:
+   - Mount Path: `/data`
+   - Size: `1GB` or higher.
+4. Configure Environment Variables (see table below). Ensure `DB_PATH=/data/fleetwise.db`, `STORAGE_DIR=/data/proofs`, and `BACKUP_DIR=/data/backups`.
+5. Health Check Path: `/health`.
+
+### Deploying to Railway
+1. Create a project and deploy from GitHub repository.
+2. Under service **Settings**:
+   - Add a **Volume**: Mount at `/data`.
+3. Under **Variables**, define production secrets.
+4. Set Healthcheck Path to `/health`.
+
+### Deploying to Fly.io
+1. Create volume: `fly volumes create fleetwise_data --size 1 --region <region>`.
+2. Configure `fly.toml`:
+   ```toml
+   [mounts]
+     source = "fleetwise_data"
+     destination = "/data"
+
+   [[http_service.checks]]
+     grace_period = "10s"
+     interval = "30s"
+     method = "get"
+     path = "/health"
+     timeout = "5s"
+   ```
+3. Deploy: `fly deploy`.
+
+---
+
+## 5. Environment Variables
+
+| Variable | Default | Required in Production? | Description |
+| :--- | :--- | :---: | :--- |
+| `NODE_ENV` | `development` | Yes | Application mode (`production`, `development`, `test`). |
+| `PORT` | `3000` | No | Port on which the HTTP server listens. |
+| `DB_PATH` | `./data/fleetwise.db` | No | Absolute or relative path to the SQLite database file. In production, place on persistent disk (`/data/fleetwise.db`). |
+| `STORAGE_DIR` | `./storage/proofs` | No | Storage path for photo proofs (`/data/proofs`). |
+| `BACKUP_DIR` | `./backups` | No | Storage path for offline backups (`/data/backups`). |
+| `JWT_SECRET` | *(Generated test key)* | **Yes** | HMAC key for signing access tokens (min 32 chars, non-placeholder). |
+| `JWT_REFRESH_SECRET`| *(Generated test key)* | **Yes** | HMAC key for signing refresh tokens (min 32 chars, distinct from JWT_SECRET). |
+| `OTP_HMAC_SECRET` | *(Generated test key)* | **Yes** | HMAC secret for hashing customer OTP codes (min 32 chars, distinct). |
+| `JWT_EXPIRES_IN` | `15m` | No | Access token lifespan. |
+| `JWT_REFRESH_EXPIRES_IN` | `7d` | No | Refresh token lifespan. |
+| `ADMIN_USERNAME` | *(none)* | No | Pre-seeded admin username on cold startup. |
+| `ADMIN_PASSWORD` | *(none)* | **Yes** | Pre-seeded admin password (min 12 chars with upper, lower, digit, symbol). |
+| `NOTIFICATIONS_ENABLED`| `true` | No | Set to `false` to disable transactional notification worker. |
+| `NOTIFICATION_PROVIDER`| `console` (dev) / `smtp` (prod) | Conditional | Provider channel (`smtp`, `console`). Console provider is strictly rejected in production. |
+| `SMTP_HOST` | `smtp.example.com` | Conditional | SMTP host server (required if notifications enabled in production). |
+| `SMTP_PORT` | `587` | No | SMTP port. |
+| `SMTP_USER` | *(none)* | Conditional | SMTP authentication username. |
+| `SMTP_PASS` | *(none)* | Conditional | SMTP authentication password. |
+| `SMTP_FROM` | `FleetWise <no-reply@...>` | No | Default outbound sender address. |
+| `OSRM_URL` | `http://router.project-osrm.org` | No | OpenStreetMap OSRM routing backend endpoint. |
+| `LOG_LEVEL` | `info` | No | Pino logging level (`fatal`, `error`, `warn`, `info`, `debug`, `silent`). |
+| `CORS_ORIGIN` | `*` | No | Allowed CORS origin header. |
+
+---
+
+## 6. API Documentation
+
+Interactive Swagger / OpenAPI 3.0 documentation is served live at:
+```
+http://localhost:3000/api/docs
+```
+It includes schemas, request/response models, and authentication definitions for all vehicle, driver, delivery, tracking, telematics, customer contact, and report endpoints.
+
+---
+
+## 7. Security Architecture
+
+1. **Authentication & Token Rotation**:
+   - Access tokens are short-lived (15 minutes) Bearer JWTs stored only in-memory on clients.
+   - Refresh tokens are stored as SHA-256 hashes in SQLite and rotated upon every refresh; old tokens are revoked instantly to prevent replay attacks.
+2. **Strict Production Enforcement**:
+   - Legacy `X-User-Role` headers are ignored outside `NODE_ENV=test`.
+   - The server refuses to boot in production if secrets are missing, under 32 characters, identical to each other, or match known placeholder patterns.
+3. **Cryptographic Proof of Delivery**:
+   - Customer OTPs are never stored in plain text. Stored as HMAC-SHA256 digests.
+   - Verification uses `crypto.timingSafeEqual` to eliminate timing side-channel attacks.
+   - Five invalid OTP attempts permanently locks verification for that trip.
+4. **Photo Proof Hygiene**:
+   - Magic byte inspection verifies binary headers (`image/jpeg`, `image/png`, `image/webp`).
+   - EXIF metadata is stripped from uploaded JPEG images to remove GPS location leakage and privacy leaks.
+   - 5MB strict payload cap; files are immediately deleted if database transactions fail (zero orphan files).
+5. **Data Minimization & Public Safety**:
+   - Public customer tracking `/track/:token` returns only high-level city/area coordinates and driver position. Full pickup and dropoff street addresses are omitted.
+   - Logs redact passwords, tokens, OTPs, recipient emails, and customer names automatically.
+
+---
+
+## 8. Backup & Disaster Recovery (Offline CLI)
+
+FleetWise provides an offline backup and disaster recovery toolchain:
+
+### Creating a Hot Backup
+Run hot database snapshotting via SQLite's native `VACUUM INTO`:
+```bash
+npm run backup
+# Or with custom retention days:
+node scripts/backup.js --retention-days 14
+```
+**Process**:
+1. Creates an atomic snapshot in `backups/fleetwise-<timestamp>.db`.
+2. Executes `PRAGMA integrity_check;` on the backup to guarantee zero corruption.
+3. Archives proof photos to `backups/proofs-<timestamp>/`.
+4. Saves metadata manifest `backups/fleetwise-<timestamp>-meta.json`.
+5. Automatically prunes snapshots older than the retention threshold.
+
+### Restoring from a Backup
+Restoration is strictly an offline command-line operation to prevent unauthorized remote invocation:
+```bash
+# 1. Stop the running server instance
+# 2. Run the offline restoration utility:
+node scripts/restore.js backups/fleetwise-2026-10-31T12-00-00-000Z.db
+
+# Or with custom target paths:
+node scripts/restore.js backups/fleetwise-<timestamp>.db --target-db /data/fleetwise.db --proofs /data/proofs
+```
+**Process**:
+1. Verifies the snapshot integrity using `PRAGMA integrity_check;`.
+2. Replaces the target database file atomically and removes stale WAL/SHM artifacts.
+3. Restores archived proof files to the storage directory.
+4. Displays confirmation; server is now ready for safe startup.
+
+---
+
+## 9. Running Locally & Testing
 
 ### Prerequisites
-- Node.js v20+ (developed and verified on Node.js v24.21.0)
-- npm v10+
+- Node.js `v22.13.0+` or Node.js `v24+`
+- npm `v10+`
 
-### Installation & Server Startup
+### Quick Start
 ```bash
-# 1. Install dependencies
-npm install
+# 1. Clone repository
+git clone https://github.com/sandipsahofficial/FleetWise-Vehicle-Delivery-Assignment-System.git
+cd FleetWise-Vehicle-Delivery-Assignment-System
 
-# 2. Start the FleetWise server
-npm start
-```
-The server will start listening at:
-👉 **`http://localhost:3000`**
+# 2. Install dependencies
+npm ci
 
-Open `http://localhost:3000` in any web browser to access the application.
+# 3. Copy environment configuration
+cp .env.example .env
 
-### Running Automated Test Suite
-FleetWise includes 114 automated unit, integration, concurrency, authentication, and governance tests across 16 test suites with zero external testing dependencies:
-```bash
+# 4. Run syntax verification
+npm run lint
+
+# 5. Execute full automated test suite
 npm test
-```
 
-### Docker & Container Deployment
-Run the production multi-stage container via Docker Compose:
-```bash
-# Build and start the containerized service
-docker compose up -d --build
-
-# View container logs
-docker compose logs -f
-
-# Check container health status
-docker compose ps
-```
-The application will be accessible at `http://localhost:3000` with persistent SQLite volume storage.
-
-### Interactive OpenAPI / Swagger Documentation
-API documentation is automatically hosted directly by the server:
-👉 **`http://localhost:3000/api/docs`**
-
----
-
-## 4. Suggested API Specification
-
-### Authentication & User Management (Phase 1)
-| Method | Endpoint | Description | Status Codes |
-|---|---|---|---|
-| `POST` | `/auth/login` | Authenticate with username and password, return JWT access + refresh tokens | 200, 401, 429 |
-| `POST` | `/auth/register` | Register a new user account (Requires `admin`) | 201, 400, 403, 409 |
-| `POST` | `/auth/refresh` | Rotate single-use SHA-256 refresh token for fresh access token | 200, 400, 401 |
-| `POST` | `/auth/logout` | Revoke refresh token | 200 |
-| `GET` | `/auth/me` | Inspect authenticated user profile & permissions | 200, 401 |
-
-### Operations & Fleet Management
-
-| Method | Endpoint | Description | Status Codes |
-|---|---|---|---|
-| `GET` | `/health` | Service health, uptime, and DB connectivity | 200, 503 |
-| `GET` | `/api/dashboard/stats` | Aggregated operational KPI metrics & chart data | 200 |
-| `GET` | `/api/analytics/performance` | Detailed fleet utilization, driver workload & completion rates | 200 |
-| `GET` | `/api/audit-logs` | Comprehensive tamper-evident audit history | 200 |
-| `POST` | `/api/seed` | Seeds realistic demo fleet, drivers, and deliveries | 200 |
-| `GET` | `/vehicles` | List all vehicles with active delivery details | 200 |
-| `POST` | `/vehicles` | Register a new fleet vehicle (Requires `fleet_manager`) | 201, 400, 403, 409 |
-| `GET` | `/vehicles/:id` | Retrieve single vehicle details | 200, 404 |
-| `PUT` | `/vehicles/:id` | Update vehicle details (Requires `fleet_manager`) | 200, 400, 403, 409 |
-| `PATCH`| `/vehicles/:id/status` | Update vehicle status (Requires `fleet_manager`, enforces lockout) | 200, 400, 403, 409 |
-| `DELETE`| `/vehicles/:id` | Safe deletion of vehicle (Requires `fleet_manager`, rejects active) | 200, 403, 404, 409 |
-| `GET` | `/drivers` | List all drivers with active delivery details | 200 |
-| `POST` | `/drivers` | Register a new driver (Requires `fleet_manager`) | 201, 400, 403, 409 |
-| `GET` | `/drivers/:id` | Retrieve single driver details | 200, 404 |
-| `PUT` | `/drivers/:id` | Update driver details (Requires `fleet_manager`) | 200, 400, 403, 409 |
-| `PATCH`| `/drivers/:id/status` | Update driver availability status (Requires `fleet_manager`) | 200, 400, 403, 409 |
-| `DELETE`| `/drivers/:id` | Safe deletion of driver (Requires `fleet_manager`, rejects active) | 200, 403, 404, 409 |
-| `GET` | `/deliveries` | List deliveries (supports `search`, `status`, `priority`) | 200 |
-| `GET` | `/deliveries/queue` | Priority-based delivery queue (sorted by priority & schedule) | 200 |
-| `POST` | `/deliveries` | Create a pending delivery request (with capacity/type reqs) | 201, 400 |
-| `GET` | `/deliveries/:id` | Retrieve delivery details with assigned resources | 200, 404 |
-| `GET` | `/deliveries/:id/suggestions`| Suggest optimal vehicle/driver pairing with capacity & workload rationale | 200, 404 |
-| `PUT` | `/deliveries/:id` | Update pending delivery details (rejects active/terminal) | 200, 400, 409 |
-| `GET` | `/deliveries/:id/assignments` | Retrieve historical assignment audit logs for delivery | 200, 404 |
-| `DELETE`| `/deliveries/:id` | Safe deletion of delivery (rejects active/history) | 200, 404, 409 |
-| `POST` | `/deliveries/:id/assign` | Atomically assign vehicle & driver to delivery | 200, 400, 404, 409 |
-| `PATCH`| `/deliveries/:id/status` | Perform validated lifecycle transition | 200, 400, 404, 409 |
-
----
-
-## 5. Phase 6 Advanced Operational Enhancements
-
-1. **Capacity & Vehicle Type Matching**:
-   - Deliveries specify optional `required_capacity` (kg) and `required_vehicle_type`.
-   - The authoritative assignment engine enforces strict matching: allocating a vehicle with insufficient capacity or mismatched type triggers an HTTP `409 Conflict`.
-2. **Priority-Based Dispatch Queue**:
-   - `GET /deliveries/queue` returns pending deliveries ordered by priority (`urgent` > `high` > `medium` > `low`), scheduled delivery time, and creation timestamp.
-3. **Smart Resource Suggestion Engine**:
-   - `GET /deliveries/:id/suggestions` identifies available vehicles that meet capacity and type specifications, ranks by best capacity fit, and pairs with drivers having balanced workloads.
-   - Suggestions must be confirmed and executed through the authoritative assignment engine.
-4. **Audit Trail**:
-   - Every creation, assignment, status transition, and asset modification writes an immutable record to the `audit_logs` table.
-   - Queryable via `GET /api/audit-logs?entity_type=...`.
-5. **Fleet Utilization & Delivery Analytics**:
-   - `GET /api/analytics/performance` calculates live fleet deployment rate, driver utilization rate, fulfillment completion rate, vehicle category breakdown, and driver trip leaderboards.
-6. **Role-Based Access Control (RBAC)**:
-   - Evaluates `X-User-Role` (`fleet_manager` vs `dispatcher`).
-   - `fleet_manager` has full administrative authority to register, update, and delete vehicles and drivers.
-   - `dispatcher` can assign resources and manage delivery lifecycles, but asset modifications return `403 Forbidden`.
-
----
-
-## 6. API cURL Examples
-
-### 1. Create a Vehicle
-```bash
-curl -X POST http://localhost:3000/vehicles \
-  -H "Content-Type: application/json" \
-  -d '{"registration_number": "NYC-2045", "type": "Sprinter Van", "capacity": 1500, "status": "available"}'
-```
-
-### 2. Create a Driver
-```bash
-curl -X POST http://localhost:3000/drivers \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Marcus Vance", "phone": "+1-555-0145", "availability_status": "available"}'
-```
-
-### 3. Create a Pending Delivery
-```bash
-curl -X POST http://localhost:3000/deliveries \
-  -H "Content-Type: application/json" \
-  -d '{"pickup_address": "100 Broadway, NY", "dropoff_address": "450 5th Ave, NY", "scheduled_time": "2026-11-01T10:00:00Z", "priority": "high", "notes": "Medical cargo"}'
-```
-
-### 4. Assign Vehicle & Driver
-```bash
-curl -X POST http://localhost:3000/deliveries/DEL-XXXX/assign \
-  -H "Content-Type: application/json" \
-  -d '{"vehicle_id": "VEH-YYYY", "driver_id": "DRV-ZZZZ"}'
-```
-
-### 5. Transition Delivery Status
-```bash
-curl -X PATCH http://localhost:3000/deliveries/DEL-XXXX/status \
-  -H "Content-Type: application/json" \
-  -d '{"status": "in_transit"}'
-```
-
----
-
-## 7. Clean-Start & Acceptance Demonstration Guide
-
-### Clean-Start Procedure
-To start FleetWise cleanly from scratch:
-```bash
-# 1. Stop any running server process (Ctrl+C)
-
-# 2. (Optional) Remove previous database file to start fresh
-rm -f data/fleetwise.db*
-
-# 3. Start the application
+# 6. Start development server
 npm start
 ```
-The server will automatically initialize the database schema, foreign keys, and unique indexes on startup.
-
-### Running the Acceptance Demonstration Sequence
-FleetWise includes an automated acceptance demonstration script verifying the 7 required business acceptance steps:
-```bash
-node --test tests/acceptance_demonstration.test.js
-```
-
-#### What This Demonstrates:
-1. **Resource Creation**: Creates vehicle `DEMO-V100`, driver `Jordan Hayes`, and delivery `DEL-1`.
-2. **Successful Assignment**: Atomically assigns `DEMO-V100` and `Jordan Hayes` to `DEL-1`. Both resources transition to `assigned`.
-3. **Vehicle Conflict Prevention**: Rejects assigning `DEMO-V100` to a second delivery with HTTP `409 Conflict`.
-4. **Driver Conflict Prevention**: Rejects assigning `Jordan Hayes` to a second delivery with HTTP `409 Conflict`.
-5. **Delivery Completion**: Transitions `DEL-1` to `in_transit` and then `delivered`. Both resources safely return to `available`.
-6. **Resource Reuse**: Successfully re-assigns the freed vehicle and driver to the second delivery.
-7. **Database Consistency Verification**: Confirms database records, assignment counts, and audit logs remain strictly consistent.
+Access the application:
+- **Dispatcher Dashboard**: `http://localhost:3000`
+- **Driver Mobile View**: `http://localhost:3000/driver`
+- **Interactive API Docs**: `http://localhost:3000/api/docs`
+- **Liveness Probe**: `http://localhost:3000/health`
+- **Readiness Probe**: `http://localhost:3000/ready`
 
 ---
 
-## 8. Troubleshooting & FAQ
+## 10. License
 
-### 1. Port 3000 Already in Use
-If port 3000 is occupied by another process, specify an alternative port via environment variable:
-```bash
-# On Linux/macOS
-PORT=3001 npm start
-
-# On Windows PowerShell
-$env:PORT="3001"; npm start
-```
-
-### 2. Database Locked (`SQLITE_BUSY`)
-FleetWise enables Write-Ahead Logging (`WAL` mode) and synchronous transactions (`BEGIN IMMEDIATE`) to prevent write collisions. If you manually access the SQLite file with external database viewers, ensure they open in read-only mode to prevent external file locking.
-
-### 3. Role-Based Access Denied (`403 Forbidden`)
-If you receive an HTTP `403 Forbidden` when attempting to register or delete vehicles/drivers, ensure the request includes the `fleet_manager` role header:
-```bash
--H "X-User-Role: fleet_manager"
-```
-Dispatchers (`X-User-Role: dispatcher`) can assign deliveries and transition statuses, but cannot mutate fleet physical assets.
-
-
-
----
-
-## 9. Phase 3A: Driver Mobile Portal (PWA) & Customer Live Tracking
-
-### Driver Mobile PWA (`/driver`)
-- **URL**: `http://localhost:3000/driver` (or `https://<domain>/driver`)
-- **Target Role**: `driver` (authenticates with JWT credentials)
-- **Features**:
-  - Offline-ready static shell cached by Service Worker (`sw.js`). Tokens and dynamic API responses are **never cached**.
-  - My Deliveries overview with active trip badges.
-  - One-tap trip start (`assigned` → `in_transit`).
-  - **Live Telematics & Geolocation**:
-    - Automatically streams driver coordinates and speed using `navigator.geolocation.watchPosition` only while a delivery is `in_transit`.
-    - Live location toggle button allows drivers to pause/resume location sharing at any time.
-    - Automatic stop on delivery completion or cancellation.
-  - **Proof of Delivery (POD)**:
-    - **6-Digit Customer OTP**: Drivers enter the recipient's OTP to atomically complete the delivery. Enforces constant-time HMAC verification, 24-hour expiration, and a 5-attempt lockout.
-    - **Photo Proof**: Drivers take or upload a delivery photo. Validated server-side using magic byte detection (JPEG, PNG, WebP) up to 5MB, EXIF metadata stripped, and saved outside public folders.
-  - **Direct Delivered Blocking**: Drivers are strictly blocked from setting `status: delivered` via PATCH; completion requires verified proof.
-
-> [!IMPORTANT]
-> **Mobile Browser Geolocation Requirements (HTTPS / Localhost)**
-> `navigator.geolocation` is restricted by modern mobile browsers to **Secure Contexts** (`https://` or `http://localhost`).
-> When testing on a physical smartphone:
-> 1. Use a secure tunnel: `npx localtunnel --port 3000` or `cloudflared tunnel --url http://localhost:3000`.
-> 2. Open the generated HTTPS URL on your phone's browser.
-> 3. Alternatively, for Android Chrome debugging, configure port forwarding in Chrome DevTools (`chrome://inspect`) to map `localhost:3000` directly to your connected device.
-
----
-
-### Public Customer Tracking Page (`/t/:token`)
-- **Customer Tracking Web Page**: `http://localhost:3000/t/:token`
-- **Customer Tracking JSON API**: `GET /api/track/:token`
-- **Security & Data Minimization**:
-  - Secure 192-bit cryptographic random tokens; only SHA-256 hashes are stored in the database.
-  - Identical HTTP 404 response for invalid, expired, or revoked tracking tokens to prevent enumeration attacks.
-  - Strictly limited payload: delivery status, pickup/dropoff addresses, estimated time, and live vehicle location **only** while delivery is `in_transit`.
-  - Zero leakage of internal IDs, driver phone numbers, driver identity, internal notes, or cryptographic proof hashes.
-  - Hardened with security headers: `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `X-Robots-Tag: noindex`.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Copyright (c) 2026 **Sandip Sah**.

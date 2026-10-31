@@ -8,6 +8,7 @@ const yaml = require('yaml');
 const swaggerUi = require('swagger-ui-express');
 
 const defaultLogger = require('./utils/logger');
+const requestIdMiddleware = require('./middleware/requestId');
 const { apiLimiter } = require('./middleware/rateLimiter');
 
 const healthRoutes = require('./routes/healthRoutes');
@@ -39,11 +40,15 @@ function createApp(customConfig = {}) {
   // Set trust proxy for production deployments behind reverse proxies
   app.set('trust proxy', 1);
 
+  // Request ID extraction and propagation
+  app.use(requestIdMiddleware);
+
   // Structured HTTP request logging with Pino
   app.use(pinoHttp({
     logger: defaultLogger,
+    genReqId: (req) => req.id,
     autoLogging: {
-      ignore: (req) => req.url.startsWith('/health') || req.url.startsWith('/favicon.ico')
+      ignore: (req) => req.url.startsWith('/health') || req.url.startsWith('/ready') || req.url.startsWith('/favicon.ico')
     }
   }));
 
@@ -90,7 +95,7 @@ function createApp(customConfig = {}) {
   app.use(cors({
     origin: config.corsOrigin === '*' ? true : config.corsOrigin.split(','),
     credentials: true,
-    exposedHeaders: ['X-Total-Count', 'X-Total-Pages', 'X-Current-Page', 'X-Per-Page', 'Content-Disposition']
+    exposedHeaders: ['X-Total-Count', 'X-Total-Pages', 'X-Current-Page', 'X-Per-Page', 'Content-Disposition', 'X-Request-ID']
   }));
 
   // Body parsers
