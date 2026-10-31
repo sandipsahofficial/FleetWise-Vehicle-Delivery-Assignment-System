@@ -10,3 +10,5 @@ data/*.db-shm
 npm-debug.log*
 storage/proofs/*
 !storage/proofs/.gitkeep
+backups/*
+!backups/.gitkeep

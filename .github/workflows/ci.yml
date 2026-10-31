@@ -1,4 +1,3 @@
-
 name: FleetWise CI
 
 on:
@@ -9,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Node.js Test Suite
+    name: Node.js Lint, Audit & Test Suite
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -28,5 +27,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run test suite
+      - name: Run Syntax & Linter Check
+        run: npm run lint
+
+      - name: Security Vulnerability Audit
+        run: npm audit --audit-level=high
+
+      - name: Run Test Suite
         run: npm test
+
+      - name: Build Docker Container Image
+        run: docker build -t fleetwise:test .

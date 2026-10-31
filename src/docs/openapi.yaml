@@ -486,6 +486,57 @@ paths:
       responses:
         "200":
           description: New OTP generated
+  /deliveries/{id}/contact:
+    get:
+      summary: Get customer contact info (admin/dispatcher only)
+      tags:
+        - Deliveries
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Customer contact details
+        "403":
+          description: Forbidden for driver
+    put:
+      summary: Update customer contact and consent (admin/dispatcher only)
+      tags:
+        - Deliveries
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                consent:
+                  type: boolean
+      responses:
+        "200":
+          description: Contact updated
+        "403":
+          description: Forbidden for driver
   /api/customers:
     post:
       summary: Register customer contact for delivery notifications

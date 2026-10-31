@@ -13,20 +13,23 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DB_PATH=/app/data/fleetwise.db
-      - JWT_SECRET=${JWT_SECRET:-production_secure_jwt_access_secret_please_change_in_env_file}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-production_secure_jwt_refresh_secret_please_change_in_env_file}
+      - DB_PATH=/data/fleetwise.db
+      - STORAGE_DIR=/data/proofs
+      - BACKUP_DIR=/data/backups
+      - JWT_SECRET=${JWT_SECRET:-production_secure_jwt_access_secret_please_change_in_env_file_32chars}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-production_secure_jwt_refresh_secret_please_change_in_env_file_32chars}
+      - OTP_HMAC_SECRET=${OTP_HMAC_SECRET:-production_secure_otp_hmac_secret_please_change_in_env_file_32chars}
       - JWT_EXPIRES_IN=15m
       - JWT_REFRESH_EXPIRES_IN=7d
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-AdminSecurePassword123!}
+      - NOTIFICATIONS_ENABLED=${NOTIFICATIONS_ENABLED:-false}
       - LOG_LEVEL=info
       - CORS_ORIGIN=*
     volumes:
-      - fleetwise_data:/app/data
-      - fleetwise_proofs:/app/storage/proofs
+      - fleetwise_data:/data
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:' + (process.env.PORT || 3000) + '/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -34,6 +37,4 @@ services:
 
 volumes:
   fleetwise_data:
-    driver: local
-  fleetwise_proofs:
     driver: local

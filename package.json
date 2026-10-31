@@ -1,20 +1,26 @@
 {
   "name": "fleetwise",
   "version": "1.0.0",
-  "description": "FleetWise - Vehicle & Delivery Assignment System",
+  "description": "FleetWise - Real-Time Vehicle & Delivery Assignment System",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "lint": "node scripts/lint.js",
+    "backup": "node scripts/backup.js",
+    "restore": "node scripts/restore.js"
   },
   "keywords": [
     "fleet",
     "logistics",
     "dispatch",
     "delivery",
-    "assignment"
+    "assignment",
+    "realtime",
+    "socketio",
+    "sqlite"
   ],
-  "author": "FleetWise Team",
+  "author": "Sandip Sah",
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
