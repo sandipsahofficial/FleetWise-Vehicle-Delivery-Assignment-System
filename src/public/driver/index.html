@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#2563eb">
+  <title>FleetWise — Driver Portal</title>
+  <link rel="manifest" href="/driver/manifest.json">
+  <link rel="stylesheet" href="/driver/driver.css">
+</head>
+<body>
+
+  <!-- Driver Header -->
+  <header class="driver-header">
+    <div class="driver-brand">
+      <span>🚚</span>
+      <span>Driver App</span>
+    </div>
+    <div class="driver-meta" id="driverMeta">
+      <span id="driverNameLabel">Driver</span>
+      <button class="btn-signout" id="btnSignout" onclick="driverApp.logout()">Sign Out</button>
+    </div>
+  </header>
+
+  <!-- GPS Status Banner -->
+  <section class="gps-banner" id="gpsBanner">
+    <div class="gps-status" id="gpsStatusPill">
+      <span class="gps-dot"></span>
+      <span id="gpsStatusText">GPS: Inactive</span>
+    </div>
+    <button class="btn btn-secondary btn-sm" id="btnToggleGps" onclick="driverApp.toggleGps()">Start Sharing</button>
+  </section>
+
+  <!-- Login Overlay if unauthenticated -->
+  <div id="loginView" class="card" style="display: none;">
+    <h2 class="card-title">Driver Sign In</h2>
+    <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Sign in with your driver user account</p>
+    <form id="formDriverLogin" onsubmit="driverApp.handleLogin(event)">
+      <div style="margin-bottom: 10px;">
+        <label style="font-size: 12px; font-weight: 600;">Username</label>
+        <input type="text" id="driverUsername" class="form-input" style="letter-spacing: normal; text-align: left;" required>
+      </div>
+      <div style="margin-bottom: 14px;">
+        <label style="font-size: 12px; font-weight: 600;">Password</label>
+        <input type="password" id="driverPassword" class="form-input" style="letter-spacing: normal; text-align: left;" required>
+      </div>
+      <div id="loginError" style="color: #dc2626; font-size: 12px; margin-bottom: 10px; display: none;"></div>
+      <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
+    </form>
+  </div>
+
+  <!-- Main Driver Content -->
+  <main id="mainDriverView" style="display: none;">
+    <!-- Active Delivery Card -->
+    <div class="card" id="activeTripCard">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="card-title" id="activeTripTitle">Current Trip</span>
+        <span class="badge badge-in_transit" id="activeTripBadge">In Transit</span>
+      </div>
+
+      <div class="delivery-route" id="activeTripRoute">
+        <div><strong>From:</strong> <span id="tripPickup">—</span></div>
+        <div><strong>To:</strong> <span id="tripDropoff">—</span></div>
+      </div>
+
+      <div class="btn-action-group" id="tripActionGroup">
+        <!-- Buttons injected dynamically based on status -->
+      </div>
+    </div>
+
+    <!-- Assigned Deliveries Queue -->
+    <div class="card">
+      <div class="card-title">My Deliveries</div>
+      <div id="deliveriesList" style="display: flex; flex-direction: column; gap: 8px;">
+        <p style="font-size: 13px; color: #64748b;">Loading deliveries…</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal: Complete with OTP -->
+  <div class="modal-overlay" id="modalOtp">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 4px;">Complete with Customer OTP</h3>
+      <p class="otp-help">Ask the recipient for their 6-digit confirmation code</p>
+      <form onsubmit="driverApp.submitOtpCompletion(event)">
+        <input type="text" id="inputOtp" class="form-input" placeholder="000000" maxlength="6" pattern="\d{6}" required autocomplete="one-time-code">
+        <div id="otpErrorMsg" style="color: #dc2626; font-size: 12px; margin-bottom: 10px; display: none;"></div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="driverApp.closeModal('modalOtp')">Cancel</button>
+          <button type="submit" class="btn btn-success" style="flex: 1;" id="btnConfirmOtp">Verify &amp; Complete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Complete with Photo -->
+  <div class="modal-overlay" id="modalPhoto">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 4px;">Photo Proof of Delivery</h3>
+      <p class="otp-help">Capture a photo of the package delivered at destination</p>
+      <form onsubmit="driverApp.submitPhotoCompletion(event)">
+        <input type="file" id="inputPhotoFile" accept="image/*" capture="environment" style="display: block; margin: 12px 0;" required onchange="driverApp.previewPhoto(event)">
+        <img id="photoPreview" class="photo-preview" alt="Proof preview">
+        <div id="photoErrorMsg" style="color: #dc2626; font-size: 12px; margin-bottom: 10px; display: none;"></div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="driverApp.closeModal('modalPhoto')">Cancel</button>
+          <button type="submit" class="btn btn-success" style="flex: 1;" id="btnConfirmPhoto">Upload &amp; Complete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/driver/driver.js"></script>
+</body>
+</html>
+

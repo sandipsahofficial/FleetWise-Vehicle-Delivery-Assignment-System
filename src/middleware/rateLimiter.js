@@ -27,8 +27,21 @@ const apiLimiter = rateLimit({
   skip: () => config.isTest
 });
 
+// Rate limiter for public customer tracking endpoint (per-IP limit)
+const trackingLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: config.isTest ? (process.env.TEST_TRACKING_RATE_LIMIT ? parseInt(process.env.TEST_TRACKING_RATE_LIMIT, 10) : 1000) : 30, // 30 reqs/min per IP in prod
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'TooManyRequests',
+    message: 'Rate limit exceeded for tracking link requests. Please try again later.'
+  },
+  skip: (req) => config.isTest && req.headers['x-skip-rate-limit'] === 'true'
+});
+
 module.exports = {
   authLimiter,
-  apiLimiter
+  apiLimiter,
+  trackingLimiter
 };
-

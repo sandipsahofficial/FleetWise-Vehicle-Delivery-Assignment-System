@@ -24,7 +24,8 @@ const updateDeliveryStatusSchema = {
   body: z.object({
     status: z.enum(['pending', 'assigned', 'in_transit', 'delivered', 'cancelled'], {
       errorMap: () => ({ message: 'Invalid delivery status. Allowed: pending, assigned, in_transit, delivered, cancelled' })
-    })
+    }),
+    reason: z.string().trim().optional()
   })
 };
 

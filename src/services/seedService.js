@@ -1,11 +1,18 @@
 const { getDb } = require('../db/database');
+const config = require('../config');
 const vehicleService = require('./vehicleService');
 const driverService = require('./driverService');
 const deliveryService = require('./deliveryService');
 const assignmentService = require('./assignmentService');
+const authService = require('./authService');
+const { ForbiddenError } = require('../utils/errors');
 
 class SeedService {
   seedDemoData() {
+    if (config.isProd || process.env.NODE_ENV === 'production') {
+      throw new ForbiddenError('Demo data and demo user seeding is strictly disabled in production environments.');
+    }
+
     const db = getDb();
 
     // Check if data already exists
@@ -73,7 +80,18 @@ class SeedService {
       availability_status: 'unavailable'
     });
 
-    // 3. Seed Deliveries
+    // 3. Seed Demo Users for Development Testing
+    try {
+      authService.register({ username: 'dispatcher_dan', password: 'DispatcherPass123!', role: 'dispatcher' });
+    } catch (_) {}
+    try {
+      authService.register({ username: 'driver_1', password: 'DriverPass123!', role: 'driver', driver_id: d1.id });
+    } catch (_) {}
+    try {
+      authService.register({ username: 'driver_2', password: 'DriverPass123!', role: 'driver', driver_id: d2.id });
+    } catch (_) {}
+
+    // 4. Seed Deliveries
     // Delivery 1: In transit
     const del1 = deliveryService.createDelivery({
       pickup_address: 'Port Newark Terminal 4, NJ',
@@ -126,11 +144,10 @@ class SeedService {
     deliveryService.updateDeliveryStatus(del5.id, 'delivered');
 
     return {
-      message: 'Demo dataset successfully seeded with vehicles, drivers, and deliveries',
+      message: 'Demo dataset successfully seeded with vehicles, drivers, demo users, and deliveries',
       seeded: true
     };
   }
 }
 
 module.exports = new SeedService();
-

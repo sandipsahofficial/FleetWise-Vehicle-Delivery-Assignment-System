@@ -8,4 +8,5 @@ data/*.db-shm
 .env
 .DS_Store
 npm-debug.log*
-
+storage/proofs/*
+!storage/proofs/.gitkeep

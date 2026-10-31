@@ -94,7 +94,7 @@ class DeliveryService {
     return deliveryRepository.findAll(filters);
   }
 
-  updateDeliveryStatus(id, newStatus, performedBy = 'dispatcher') {
+  updateDeliveryStatus(id, newStatus, performedBy = 'dispatcher', reason = null) {
     if (!newStatus || typeof newStatus !== 'string') {
       throw new BadRequestError('New status is required');
     }
@@ -140,6 +140,13 @@ class DeliveryService {
         );
       }
 
+      // When entering in_transit, generate OTP for delivery verification
+      if (targetStatus === 'in_transit') {
+        try {
+          const proofService = require('./proofService');
+          proofService.generateOtp(id);
+        } catch (_) {}
+      }
       // If entering terminal/release state (delivered or cancelled)
       if (targetStatus === 'delivered' || targetStatus === 'cancelled') {
         // Find active assignment
@@ -206,7 +213,7 @@ class DeliveryService {
         old_state: { status: currentStatus },
         new_state: { status: targetStatus },
         performed_by: performedBy,
-        details: `Transitioned status from ${currentStatus} to ${targetStatus}`
+        details: reason ? `Transitioned status to '${targetStatus}' (Reason: ${reason})` : `Transitioned status from ${currentStatus} to ${targetStatus}`
       });
 
       const updated = deliveryRepository.findById(id);
@@ -217,6 +224,12 @@ class DeliveryService {
         events.emitDeliveryStatusChanged(updated);
       } catch (_) {}
 
+      if (targetStatus === 'delivered') {
+        try {
+          const trackingRepo = require('../repositories/trackingRepository');
+          trackingRepo.updateExpiryOnCompletion(id, 48);
+        } catch (_) {}
+      }
       return updated;
     } catch (err) {
       try {

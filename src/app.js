@@ -16,6 +16,8 @@ const vehicleRoutes = require('./routes/vehicleRoutes');
 const driverRoutes = require('./routes/driverRoutes');
 const deliveryRoutes = require('./routes/deliveryRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const proofRoutes = require('./routes/proofRoutes');
+const trackingRoutes = require('./routes/trackingRoutes');
 
 /**
  * Express application factory.
@@ -97,6 +99,8 @@ function createApp(customConfig = {}) {
   }
 
   // Serve static frontend assets
+  app.use('/driver', express.static(path.join(__dirname, 'public', 'driver')));
+  app.use('/track', express.static(path.join(__dirname, 'public', 'track')));
   app.use(express.static(path.join(__dirname, 'public')));
 
   // Swagger / OpenAPI documentation UI at /api/docs
@@ -125,6 +129,8 @@ function createApp(customConfig = {}) {
   app.use('/', vehicleRoutes);
   app.use('/', driverRoutes);
   app.use('/', deliveryRoutes);
+  app.use('/', proofRoutes);
+  app.use('/', trackingRoutes);
   app.use('/api', dashboardRoutes);
 
   // 404 handler for unknown API routes

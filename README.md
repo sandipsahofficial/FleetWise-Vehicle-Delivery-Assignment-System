@@ -307,3 +307,43 @@ If you receive an HTTP `403 Forbidden` when attempting to register or delete veh
 Dispatchers (`X-User-Role: dispatcher`) can assign deliveries and transition statuses, but cannot mutate fleet physical assets.
 
 
+
+---
+
+## 9. Phase 3A: Driver Mobile Portal (PWA) & Customer Live Tracking
+
+### Driver Mobile PWA (`/driver`)
+- **URL**: `http://localhost:3000/driver` (or `https://<domain>/driver`)
+- **Target Role**: `driver` (authenticates with JWT credentials)
+- **Features**:
+  - Offline-ready static shell cached by Service Worker (`sw.js`). Tokens and dynamic API responses are **never cached**.
+  - My Deliveries overview with active trip badges.
+  - One-tap trip start (`assigned` → `in_transit`).
+  - **Live Telematics & Geolocation**:
+    - Automatically streams driver coordinates and speed using `navigator.geolocation.watchPosition` only while a delivery is `in_transit`.
+    - Live location toggle button allows drivers to pause/resume location sharing at any time.
+    - Automatic stop on delivery completion or cancellation.
+  - **Proof of Delivery (POD)**:
+    - **6-Digit Customer OTP**: Drivers enter the recipient's OTP to atomically complete the delivery. Enforces constant-time HMAC verification, 24-hour expiration, and a 5-attempt lockout.
+    - **Photo Proof**: Drivers take or upload a delivery photo. Validated server-side using magic byte detection (JPEG, PNG, WebP) up to 5MB, EXIF metadata stripped, and saved outside public folders.
+  - **Direct Delivered Blocking**: Drivers are strictly blocked from setting `status: delivered` via PATCH; completion requires verified proof.
+
+> [!IMPORTANT]
+> **Mobile Browser Geolocation Requirements (HTTPS / Localhost)**
+> `navigator.geolocation` is restricted by modern mobile browsers to **Secure Contexts** (`https://` or `http://localhost`).
+> When testing on a physical smartphone:
+> 1. Use a secure tunnel: `npx localtunnel --port 3000` or `cloudflared tunnel --url http://localhost:3000`.
+> 2. Open the generated HTTPS URL on your phone's browser.
+> 3. Alternatively, for Android Chrome debugging, configure port forwarding in Chrome DevTools (`chrome://inspect`) to map `localhost:3000` directly to your connected device.
+
+---
+
+### Public Customer Tracking Page (`/t/:token`)
+- **Customer Tracking Web Page**: `http://localhost:3000/t/:token`
+- **Customer Tracking JSON API**: `GET /api/track/:token`
+- **Security & Data Minimization**:
+  - Secure 192-bit cryptographic random tokens; only SHA-256 hashes are stored in the database.
+  - Identical HTTP 404 response for invalid, expired, or revoked tracking tokens to prevent enumeration attacks.
+  - Strictly limited payload: delivery status, pickup/dropoff addresses, estimated time, and live vehicle location **only** while delivery is `in_transit`.
+  - Zero leakage of internal IDs, driver phone numbers, driver identity, internal notes, or cryptographic proof hashes.
+  - Hardened with security headers: `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `X-Robots-Tag: noindex`.

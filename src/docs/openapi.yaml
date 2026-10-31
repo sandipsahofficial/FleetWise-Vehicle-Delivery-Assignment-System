@@ -5,8 +5,8 @@ info:
   description: >
     Enterprise-grade, real-time fleet management and delivery dispatch API.
     Provides strict resource conflict prevention, atomic ACID assignments,
-    deterministic delivery lifecycle management, role-based access control,
-    and driver-scoped operational endpoints.
+    deterministic delivery lifecycle management, role-based access control, and
+    driver-scoped operational endpoints.
 servers:
   - url: /
     description: Current Host
@@ -14,15 +14,19 @@ paths:
   /auth/login:
     post:
       summary: User authentication
-      description: Exchanges username and password for JWT access and refresh token pair. Rate-limited.
-      tags: [Authentication]
+      description: Exchanges username and password for JWT access and refresh token
+        pair. Rate-limited.
+      tags:
+        - Authentication
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [username, password]
+              required:
+                - username
+                - password
               properties:
                 username:
                   type: string
@@ -31,39 +35,40 @@ paths:
                   type: string
                   example: AdminSecurePassword123!
       responses:
-        '200':
+        "200":
           description: Login successful
-        '401':
+        "401":
           description: Invalid credentials
-        '429':
+        "429":
           description: Too many attempts, rate limit exceeded
-
   /auth/refresh:
     post:
       summary: Refresh access token
       description: Submits a valid refresh token, revokes it, and issues a fresh token pair.
-      tags: [Authentication]
+      tags:
+        - Authentication
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [refreshToken]
+              required:
+                - refreshToken
               properties:
                 refreshToken:
                   type: string
       responses:
-        '200':
+        "200":
           description: Token rotated and fresh access token issued
-        '401':
+        "401":
           description: Revoked or expired refresh token
-
   /auth/register:
     post:
       summary: Register new user (Admin only)
       description: Creates a user account with role admin, dispatcher, or driver.
-      tags: [Authentication]
+      tags:
+        - Authentication
       security:
         - BearerAuth: []
       requestBody:
@@ -72,7 +77,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [username, password, role]
+              required:
+                - username
+                - password
+                - role
               properties:
                 username:
                   type: string
@@ -82,38 +90,45 @@ paths:
                   example: SecurePass123!
                 role:
                   type: string
-                  enum: [admin, dispatcher, driver]
+                  enum:
+                    - admin
+                    - dispatcher
+                    - driver
                   example: dispatcher
                 driver_id:
                   type: string
                   nullable: true
                   example: DRV-A100
       responses:
-        '201':
+        "201":
           description: User registered successfully
-        '403':
+        "403":
           description: Admin authorization required
-
   /auth/me:
     get:
       summary: Get current authenticated user profile
-      tags: [Authentication]
+      tags:
+        - Authentication
       security:
         - BearerAuth: []
       responses:
-        '200':
+        "200":
           description: Current user profile
-
   /vehicles:
     get:
       summary: List fleet vehicles
-      tags: [Vehicles]
+      tags:
+        - Vehicles
       parameters:
         - name: status
           in: query
           schema:
             type: string
-            enum: [available, assigned, maintenance, inactive]
+            enum:
+              - available
+              - assigned
+              - maintenance
+              - inactive
         - name: page
           in: query
           schema:
@@ -123,11 +138,12 @@ paths:
           schema:
             type: integer
       responses:
-        '200':
+        "200":
           description: List of vehicles
     post:
       summary: Register new vehicle
-      tags: [Vehicles]
+      tags:
+        - Vehicles
       security:
         - BearerAuth: []
       requestBody:
@@ -136,7 +152,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [registration_number, type, capacity]
+              required:
+                - registration_number
+                - type
+                - capacity
               properties:
                 registration_number:
                   type: string
@@ -149,16 +168,19 @@ paths:
                   example: 2500
                 status:
                   type: string
-                  enum: [available, maintenance, inactive]
+                  enum:
+                    - available
+                    - maintenance
+                    - inactive
                   default: available
       responses:
-        '201':
+        "201":
           description: Vehicle created
-
   /drivers:
     get:
       summary: List drivers
-      tags: [Drivers]
+      tags:
+        - Drivers
       parameters:
         - name: status
           in: query
@@ -169,11 +191,12 @@ paths:
           schema:
             type: integer
       responses:
-        '200':
+        "200":
           description: List of drivers
     post:
       summary: Register driver
-      tags: [Drivers]
+      tags:
+        - Drivers
       security:
         - BearerAuth: []
       requestBody:
@@ -182,7 +205,9 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name, phone]
+              required:
+                - name
+                - phone
               properties:
                 name:
                   type: string
@@ -192,17 +217,20 @@ paths:
                   example: +1-555-0199
                 availability_status:
                   type: string
-                  enum: [available, unavailable]
+                  enum:
+                    - available
+                    - unavailable
                   default: available
       responses:
-        '201':
+        "201":
           description: Driver registered
-
   /deliveries:
     get:
       summary: List deliveries
-      description: Returns deliveries. When accessed by a driver, automatically scopes to only that driver's assignments.
-      tags: [Deliveries]
+      description: Returns deliveries. When accessed by a driver, automatically scopes
+        to only that driver's assignments.
+      tags:
+        - Deliveries
       parameters:
         - name: status
           in: query
@@ -221,11 +249,12 @@ paths:
           schema:
             type: integer
       responses:
-        '200':
+        "200":
           description: Deliveries list
     post:
       summary: Create delivery request
-      tags: [Deliveries]
+      tags:
+        - Deliveries
       security:
         - BearerAuth: []
       requestBody:
@@ -234,7 +263,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [pickup_address, dropoff_address, scheduled_time]
+              required:
+                - pickup_address
+                - dropoff_address
+                - scheduled_time
               properties:
                 pickup_address:
                   type: string
@@ -247,19 +279,23 @@ paths:
                   format: date-time
                 priority:
                   type: string
-                  enum: [low, medium, high, urgent]
+                  enum:
+                    - low
+                    - medium
+                    - high
+                    - urgent
                   default: medium
                 required_capacity:
                   type: number
                   default: 0
       responses:
-        '201':
+        "201":
           description: Delivery created in pending state
-
   /deliveries/{id}/assign:
     post:
       summary: Atomically assign vehicle and driver
-      tags: [Deliveries]
+      tags:
+        - Deliveries
       security:
         - BearerAuth: []
       parameters:
@@ -274,23 +310,26 @@ paths:
           application/json:
             schema:
               type: object
-              required: [vehicle_id, driver_id]
+              required:
+                - vehicle_id
+                - driver_id
               properties:
                 vehicle_id:
                   type: string
                 driver_id:
                   type: string
       responses:
-        '200':
+        "200":
           description: Resources assigned atomically
-        '409':
+        "409":
           description: Resource conflict or vehicle/driver already occupied
-
   /deliveries/{id}/status:
     patch:
       summary: Transition delivery status
-      description: Transitions along deterministic lifecycle state machine. Drivers can only update their assigned deliveries.
-      tags: [Deliveries]
+      description: Transitions along deterministic lifecycle state machine. Drivers
+        can only update their assigned deliveries.
+      tags:
+        - Deliveries
       security:
         - BearerAuth: []
       parameters:
@@ -305,27 +344,151 @@ paths:
           application/json:
             schema:
               type: object
-              required: [status]
+              required:
+                - status
               properties:
                 status:
                   type: string
-                  enum: [pending, assigned, in_transit, delivered, cancelled]
+                  enum:
+                    - pending
+                    - assigned
+                    - in_transit
+                    - delivered
+                    - cancelled
       responses:
-        '200':
+        "200":
           description: Status updated
-
   /health:
     get:
       summary: System health check
-      tags: [System]
+      tags:
+        - System
       responses:
-        '200':
+        "200":
           description: Health details
-
+  /api/track/{token}:
+    get:
+      summary: Public customer tracking endpoint
+      tags:
+        - Tracking
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Data-minimized delivery status and progress
+        "404":
+          description: Tracking link not found or expired
+  /deliveries/{id}/complete-otp:
+    post:
+      summary: Complete delivery with 6-digit customer OTP
+      tags:
+        - Proof of Delivery
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - otp
+              properties:
+                otp:
+                  type: string
+                  pattern: ^[0-9]{6}$
+                lat:
+                  type: number
+                lng:
+                  type: number
+      responses:
+        "200":
+          description: Delivery completed
+        "400":
+          description: Invalid OTP or expired
+        "403":
+          description: OTP locked or driver access denied
+  /deliveries/{id}/complete-photo:
+    post:
+      summary: Complete delivery with photo upload
+      tags:
+        - Proof of Delivery
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - photo
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                lat:
+                  type: number
+                lng:
+                  type: number
+      responses:
+        "200":
+          description: Delivery completed with photo proof
+        "400":
+          description: Invalid file type or oversized upload
+  /deliveries/{id}/proof/photo:
+    get:
+      summary: Stream authenticated proof photo
+      tags:
+        - Proof of Delivery
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Image binary stream (JPEG, PNG, WebP)
+        "403":
+          description: Access denied
+  /deliveries/{id}/otp/regenerate:
+    post:
+      summary: Regenerate customer OTP (admin/dispatcher only)
+      tags:
+        - Proof of Delivery
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: New OTP generated
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-
