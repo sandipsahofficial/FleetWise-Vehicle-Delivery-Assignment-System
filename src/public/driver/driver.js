@@ -409,3 +409,4 @@ const driverApp = {
 document.addEventListener('DOMContentLoaded', () => {
   driverApp.init();
 });
+

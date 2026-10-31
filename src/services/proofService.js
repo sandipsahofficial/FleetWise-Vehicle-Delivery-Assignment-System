@@ -23,7 +23,7 @@ class ProofService {
   generateOtp(deliveryId) {
     // Generate 6-digit number between 100000 and 999999
     const otp = crypto.randomInt(100000, 1000000).toString();
-    const otpHash = crypto.createHmac('sha256', config.jwt.secret).update(otp).digest('hex');
+    const otpHash = crypto.createHmac('sha256', config.otp.hmacSecret).update(otp).digest('hex');
     const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString(); // 24 hours
 
     proofRepository.upsertOtp({
@@ -115,7 +115,7 @@ class ProofService {
       }
 
       // Constant-time HMAC comparison
-      const computedHash = crypto.createHmac('sha256', config.jwt.secret).update(String(otp).trim()).digest('hex');
+      const computedHash = crypto.createHmac('sha256', config.otp.hmacSecret).update(String(otp).trim()).digest('hex');
       const bufA = Buffer.from(computedHash, 'hex');
       const bufB = Buffer.from(proof.otp_hash, 'hex');
       const match = bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);

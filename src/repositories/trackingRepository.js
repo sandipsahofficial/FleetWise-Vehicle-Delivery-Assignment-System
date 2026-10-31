@@ -53,3 +53,4 @@ class TrackingRepository {
 }
 
 module.exports = new TrackingRepository();
+

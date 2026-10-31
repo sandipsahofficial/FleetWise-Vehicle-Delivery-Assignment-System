@@ -30,7 +30,7 @@ const apiLimiter = rateLimit({
 // Rate limiter for public customer tracking endpoint (per-IP limit)
 const trackingLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: config.isTest ? 1000 : 30, // 30 reqs/min per IP in prod
+  max: config.isTest ? (process.env.TEST_TRACKING_RATE_LIMIT ? parseInt(process.env.TEST_TRACKING_RATE_LIMIT, 10) : 1000) : 30, // 30 reqs/min per IP in prod
   standardHeaders: true,
   legacyHeaders: false,
   message: {

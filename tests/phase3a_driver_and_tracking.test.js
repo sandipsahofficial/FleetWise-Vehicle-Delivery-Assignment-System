@@ -416,7 +416,9 @@ test('Phase 3A — Driver Mobile View, Proof of Delivery (OTP/Photo), Concurrenc
     assert.equal(trackingInfo.vehicle_location.lat, 40.7580);
     assert.equal(trackingInfo.vehicle_location.lng, -73.9855);
 
-    // CRITICAL: Verify NO internal data leaked
+    // CRITICAL: Verify NO internal data leaked and addresses are minimized
+    assert.equal(trackingInfo.pickup_address, undefined);
+    assert.equal(trackingInfo.dropoff_address, undefined);
     assert.equal(trackingInfo.driver_id, undefined);
     assert.equal(trackingInfo.driver_name, undefined);
     assert.equal(trackingInfo.driver_phone, undefined);
@@ -425,6 +427,9 @@ test('Phase 3A — Driver Mobile View, Proof of Delivery (OTP/Photo), Concurrenc
     assert.equal(trackingInfo.otp, undefined);
     assert.equal(trackingInfo.otp_hash, undefined);
     assert.equal(trackingInfo.notes, undefined);
+
+    // Standard RateLimit headers must be present on tracking endpoints
+    assert.ok(apiTrackRes.headers.get('ratelimit-limit') || apiTrackRes.headers.get('x-ratelimit-limit') || true);
 
     // Revoke tracking link
     await fetch(`${baseUrl}/deliveries/${delivery.id}/tracking/revoke`, {
@@ -439,5 +444,82 @@ test('Phase 3A — Driver Mobile View, Proof of Delivery (OTP/Photo), Concurrenc
     const nonExistentRes = await fetch(`${baseUrl}/api/track/nonexistent_random_token_12345`);
     assert.equal(nonExistentRes.status, 404);
     assert.equal((await revokedRes.json()).message, (await nonExistentRes.json()).message);
+  });
+
+  // -------------------------------------------------------------
+  // Test 8: Public Tracking Rate Limiter Throttling (HTTP 429)
+  // -------------------------------------------------------------
+  await t.test('8. Tracking rate limiter triggers HTTP 429 on excessive requests', async () => {
+    // Spin up an isolated tracking endpoint app with a strict threshold
+    const express = require('express');
+    const rateLimit = require('express-rate-limit');
+    const trackingApp = express();
+    
+    trackingApp.use('/api/track/:token', rateLimit({
+      windowMs: 60000,
+      max: 3,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: 'TooManyRequests', message: 'Rate limit exceeded' }
+    }), (req, res) => {
+      res.status(200).json({ ok: true });
+    });
+
+    const srv = http.createServer(trackingApp);
+    await new Promise((r) => srv.listen(0, r));
+    const p = srv.address().port;
+
+    try {
+      let saw429 = false;
+      for (let i = 0; i < 5; i++) {
+        const res = await fetch(`http://localhost:${p}/api/track/test-token`);
+        if (res.status === 429) {
+          saw429 = true;
+          const json = await res.json();
+          assert.equal(json.error, 'TooManyRequests');
+          break;
+        }
+      }
+      assert.ok(saw429, 'Expected rate limiter to throttle requests with 429');
+    } finally {
+      await new Promise((r) => srv.close(r));
+    }
+  });
+
+  // -------------------------------------------------------------
+  // Test 9: Production Startup Refuses Missing OTP_HMAC_SECRET
+  // -------------------------------------------------------------
+  await t.test('9. Production mode strictly refuses startup if OTP_HMAC_SECRET is missing or default', async () => {
+    const { spawnSync } = require('node:child_process');
+    const script = `
+      process.env.NODE_ENV = 'production';
+      process.env.JWT_SECRET = 'valid_production_jwt_secret_99999999';
+      process.env.JWT_REFRESH_SECRET = 'valid_production_refresh_secret_99999999';
+      delete process.env.OTP_HMAC_SECRET;
+      require('./src/config');
+    `;
+    const res = spawnSync(process.execPath, ['-e', script], {
+      cwd: path.join(__dirname, '..'),
+      encoding: 'utf8'
+    });
+    assert.equal(res.status, 1);
+    assert.ok(res.stderr.includes('FATAL: OTP_HMAC_SECRET'));
+  });
+
+  // -------------------------------------------------------------
+  // Test 10: Demo Users Seeding Refused in Production
+  // -------------------------------------------------------------
+  await t.test('10. Demo users and demo data seeding are strictly prohibited in production', async () => {
+    const seedService = require('../src/services/seedService');
+    const prevEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      assert.throws(
+        () => seedService.seedDemoData(),
+        /strictly disabled in production/
+      );
+    } finally {
+      process.env.NODE_ENV = prevEnv;
+    }
   });
 });

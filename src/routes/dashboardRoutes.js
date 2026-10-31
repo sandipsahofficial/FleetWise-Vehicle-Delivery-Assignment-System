@@ -61,7 +61,7 @@ router.post(
   requireRole(['admin']),
   (req, res, next) => {
     try {
-      if (process.env.NODE_ENV === 'production' || config.env === 'production') {
+      if (process.env.NODE_ENV === 'production' || config.nodeEnv === 'production' || config.isProd) {
         throw new ForbiddenError('Database seeding is strictly disabled in production environments.');
       }
       const result = seedService.seedDemoData();

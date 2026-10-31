@@ -76,3 +76,4 @@ class ProofRepository {
 }
 
 module.exports = new ProofRepository();
+

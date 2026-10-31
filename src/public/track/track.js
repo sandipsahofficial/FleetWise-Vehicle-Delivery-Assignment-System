@@ -68,9 +68,15 @@ function renderTracking(data) {
     }
   });
 
-  // Addresses
-  document.getElementById('pickupAddress').textContent = data.pickup_address || 'Dispatch Center';
-  document.getElementById('dropoffAddress').textContent = data.dropoff_address || 'Destination';
+  // Coarse Destination Area
+  const areaWrapper = document.getElementById('destinationAreaWrapper');
+  const areaEl = document.getElementById('destinationArea');
+  if (data.destination_area && areaWrapper && areaEl) {
+    areaWrapper.style.display = 'block';
+    areaEl.textContent = data.destination_area;
+  } else if (areaWrapper) {
+    areaWrapper.style.display = 'none';
+  }
 
   // Scheduled / Delivered info
   if (data.status === 'delivered' && data.delivered_at) {

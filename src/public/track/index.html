@@ -3,35 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FleetWise — Live Shipment Tracking</title>
   <meta name="robots" content="noindex, nofollow">
-  <meta name="referrer" content="no-referrer">
-  <title>FleetWise — Shipment Live Tracking</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="/track/track.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body>
   <div class="tracking-container">
     <header class="tracking-header">
-      <div class="brand">
-        <span>🚚</span>
-        <span>FleetWise Tracking</span>
+      <div class="logo-group">
+        <span class="logo-icon">🚚</span>
+        <h1 class="logo-title">FleetWise Tracking</h1>
       </div>
       <div id="trackingStatusBadge" class="badge-status badge-pending">Loading...</div>
     </header>
 
-    <main>
+    <main id="trackingMain">
       <!-- Loading State -->
-      <div id="loadingState" class="tracking-card" style="text-align: center; padding: 40px;">
-        <p>Loading live tracking information…</p>
+      <div id="loadingState" class="tracking-card" style="text-align: center; padding: 40px 20px;">
+        <p style="color: #64748b;">Retrieving shipment details...</p>
       </div>
 
       <!-- Error State -->
-      <div id="errorState" class="error-banner" style="display: none;">
-        <h3>Tracking Link Unavailable</h3>
-        <p id="errorMessage">This shipment tracking link is invalid, expired, or has been revoked.</p>
+      <div id="errorState" class="tracking-card" style="display: none; text-align: center; padding: 40px 20px;">
+        <div style="font-size: 32px; margin-bottom: 12px;">🔍</div>
+        <h3 id="errorTitle" style="margin-bottom: 8px;">Shipment Not Found</h3>
+        <p id="errorMessage" style="color: #64748b; font-size: 14px;">This tracking link is invalid, expired, or has been revoked.</p>
       </div>
 
-      <!-- Main Content State -->
+      <!-- Active Content -->
       <div id="contentState" class="tracking-card" style="display: none;">
         <h2 id="trackingStageText" style="font-size: 20px; font-weight: 700; margin-bottom: 4px;">Out for Delivery</h2>
         <p id="deliveryMeta" style="font-size: 13px; color: #64748b; margin-bottom: 16px;">Shipment in progress</p>
@@ -59,20 +59,13 @@
         <!-- Live Vehicle Map (in_transit only) -->
         <div id="mapWrapper" class="map-wrapper" style="display: none;"></div>
 
-        <!-- Route Details -->
-        <div class="route-info">
-          <div class="route-point">
-            <span class="point-icon">📍</span>
-            <div>
-              <div class="point-label">Pickup Location</div>
-              <div class="point-val" id="pickupAddress">—</div>
-            </div>
-          </div>
+        <!-- Destination Area (Coarse privacy) -->
+        <div class="route-info" id="destinationAreaWrapper" style="display: none;">
           <div class="route-point">
             <span class="point-icon">🏁</span>
             <div>
-              <div class="point-label">Delivery Destination</div>
-              <div class="point-val" id="dropoffAddress">—</div>
+              <div class="point-label">Destination Area</div>
+              <div class="point-val" id="destinationArea">—</div>
             </div>
           </div>
         </div>

@@ -5,6 +5,16 @@ const proofRepository = require('../repositories/proofRepository');
 const { getDb } = require('../db/database');
 const { NotFoundError, ForbiddenError } = require('../utils/errors');
 
+function extractArea(address) {
+  if (!address || typeof address !== 'string') return null;
+  const parts = address.split(',').map(p => p.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    // Return city / state / general area, omitting street name & building number
+    return parts.slice(1).join(', ');
+  }
+  return null;
+}
+
 class TrackingService {
   /**
    * Generates or regenerates an unguessable 192-bit customer tracking token.
@@ -65,7 +75,7 @@ class TrackingService {
 
   /**
    * Public tracking endpoint resolver.
-   * Strict data minimization: returns only status, coarse progress, and vehicle position while in transit.
+   * Strict data minimization: returns only status, coarse progress, destination area, and vehicle position while in transit.
    * Identical 404 for invalid, expired, or revoked tokens.
    */
   getPublicTrackingData(rawToken) {
@@ -126,8 +136,7 @@ class TrackingService {
     return {
       status: link.delivery_status,
       progress_stage: stageMap[link.delivery_status] || 'Processing',
-      pickup_address: link.pickup_address,
-      dropoff_address: link.dropoff_address,
+      destination_area: extractArea(link.dropoff_address),
       scheduled_time: link.scheduled_time,
       delivered_at: deliveredAt,
       vehicle_location: vehicleLocation
