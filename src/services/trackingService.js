@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const trackingRepository = require('../repositories/trackingRepository');
 const deliveryRepository = require('../repositories/deliveryRepository');
 const proofRepository = require('../repositories/proofRepository');
+const routingService = require('./routing/routingService');
 const { getDb } = require('../db/database');
 const { NotFoundError, ForbiddenError } = require('../utils/errors');
 
@@ -76,6 +77,7 @@ class TrackingService {
   /**
    * Public tracking endpoint resolver.
    * Strict data minimization: returns only status, coarse progress, destination area, and vehicle position while in transit.
+   * Never leaks raw distance or driver personal info.
    * Identical 404 for invalid, expired, or revoked tokens.
    */
   getPublicTrackingData(rawToken) {
@@ -103,8 +105,9 @@ class TrackingService {
     };
 
     let vehicleLocation = null;
+    let estimatedEta = null;
 
-    // Vehicle location is ONLY exposed when the delivery is actively in transit
+    // Vehicle location and coarse ETA are ONLY exposed when the delivery is actively in transit
     if (link.delivery_status === 'in_transit') {
       const db = getDb();
       const loc = db.prepare(`
@@ -123,6 +126,9 @@ class TrackingService {
           updated_at: loc.updated_at
         };
       }
+
+      // Default coarse ETA string without distance
+      estimatedEta = routingService.formatCoarseEta(25);
     }
 
     let deliveredAt = null;
@@ -138,6 +144,7 @@ class TrackingService {
       progress_stage: stageMap[link.delivery_status] || 'Processing',
       destination_area: extractArea(link.dropoff_address),
       scheduled_time: link.scheduled_time,
+      estimated_eta: estimatedEta,
       delivered_at: deliveredAt,
       vehicle_location: vehicleLocation
     };

@@ -403,6 +403,49 @@ const driverApp = {
     } finally {
       btn.disabled = false;
     }
+  },
+
+  async submitFuelLog(e) {
+    e.preventDefault();
+    const errEl = document.getElementById('fuelErrorMsg');
+    const succEl = document.getElementById('fuelSuccessMsg');
+    errEl.style.display = 'none';
+    succEl.style.display = 'none';
+
+    // Find active vehicle
+    const vehicleId = this.activeTrip?.assignment?.vehicle?.id || this.activeTrip?.vehicle_id;
+    if (!vehicleId) {
+      errEl.textContent = 'You must have an active trip assignment to record fuel.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    const odometer = parseFloat(document.getElementById('inputFuelOdometer').value);
+    const liters = parseFloat(document.getElementById('inputFuelLiters').value);
+    const cost = parseFloat(document.getElementById('inputFuelCost').value);
+
+    try {
+      const res = await this.apiFetch('/api/fuel-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vehicle_id: vehicleId,
+          odometer,
+          liters,
+          cost
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to record fuel log');
+
+      succEl.textContent = `Fuel log saved successfully (${liters}L, ${cost})`;
+      succEl.style.display = 'block';
+      document.getElementById('formDriverFuel').reset();
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
+    }
   }
 };
 

@@ -358,6 +358,15 @@ class ProofService {
       WHERE id = ?
     `).run(deliveryId);
 
+    // Enqueue outbox notification in the SAME transaction
+    try {
+      const notificationService = require('./notificationService');
+      notificationService.enqueueNotification(db, {
+        deliveryId,
+        event: 'delivered'
+      });
+    } catch (_) {}
+
     // 3. Write audit log
     const auditId = crypto.randomUUID();
     db.prepare(`

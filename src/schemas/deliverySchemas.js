@@ -16,7 +16,9 @@ const createDeliverySchema = {
 const assignDeliverySchema = {
   body: z.object({
     vehicle_id: z.string().trim().min(1, 'Vehicle ID is required'),
-    driver_id: z.string().trim().min(1, 'Driver ID is required')
+    driver_id: z.string().trim().min(1, 'Driver ID is required'),
+    override_overdue_maintenance: z.coerce.boolean().optional(),
+    override_reason: z.string().trim().optional()
   })
 };
 
@@ -62,4 +64,3 @@ module.exports = {
   updateDeliverySchema,
   listDeliveryQuerySchema
 };
-

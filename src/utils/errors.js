@@ -43,6 +43,12 @@ class UnprocessableEntityError extends AppError {
   }
 }
 
+class PayloadTooLargeError extends AppError {
+  constructor(message = 'Payload too large') {
+    super(message, 413);
+  }
+}
+
 module.exports = {
   AppError,
   BadRequestError,
@@ -50,6 +56,7 @@ module.exports = {
   ForbiddenError,
   NotFoundError,
   ConflictError,
-  UnprocessableEntityError
+  UnprocessableEntityError,
+  PayloadTooLargeError
 };
 

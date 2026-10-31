@@ -13,6 +13,7 @@ const {
   updateDeliverySchema,
   listDeliveryQuerySchema
 } = require('../schemas/deliverySchemas');
+const { updateContactSchema } = require('../schemas/notificationSchemas');
 
 const router = express.Router();
 
@@ -147,8 +148,14 @@ router.post(
   validate(assignDeliverySchema),
   (req, res, next) => {
     try {
-      const { vehicle_id, driver_id } = req.body || {};
-      const delivery = assignmentService.assignDelivery(req.params.id, vehicle_id, driver_id);
+      const { vehicle_id, driver_id, override_overdue_maintenance, override_reason } = req.body || {};
+      const delivery = assignmentService.assignDelivery(
+        req.params.id,
+        vehicle_id,
+        driver_id,
+        req.user?.username || req.performedBy || 'dispatcher',
+        { override_overdue_maintenance: Boolean(override_overdue_maintenance), override_reason }
+      );
       res.status(200).json({
         message: 'Vehicle and driver successfully assigned to delivery',
         delivery
@@ -215,6 +222,97 @@ router.delete(
       res.status(200).json({
         message: `Delivery '${req.params.id}' successfully deleted`,
         id: req.params.id
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /deliveries/:id/contact - Admin/Dispatcher only (Never exposed to drivers or public API)
+router.get(
+  '/deliveries/:id/contact',
+  authenticate(),
+  requireRole(['admin', 'dispatcher']),
+  (req, res, next) => {
+    try {
+      const notificationService = require('../services/notificationService');
+      const contact = notificationService.getContact(req.params.id);
+      res.status(200).json(contact);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// PUT /deliveries/:id/contact - Admin/Dispatcher only (Add or edit customer contact with consent)
+router.put(
+  '/deliveries/:id/contact',
+  authenticate(),
+  requireRole(['admin', 'dispatcher']),
+  validate(updateContactSchema),
+  (req, res, next) => {
+    try {
+      const notificationService = require('../services/notificationService');
+      const auditService = require('../services/auditService');
+      const { name, email, phone, consent } = req.body;
+      const contact = notificationService.registerContact(
+        req.params.id,
+        { name, email, phone, consent: Boolean(consent) },
+        req.user?.username || req.performedBy || 'dispatcher'
+      );
+
+      // Audit entry: strictly zero PII values
+      auditService.log({
+        entity_type: 'customer_contact',
+        entity_id: req.params.id,
+        action: 'CUSTOMER_CONTACT_UPDATED',
+        old_state: null,
+        new_state: { consent: contact.consent ? 1 : 0 },
+        performed_by: req.user?.username || req.performedBy || 'dispatcher',
+        details: `Customer notification consent set to ${contact.consent ? 'granted' : 'revoked'}`
+      });
+
+      res.status(200).json({
+        message: 'Customer contact updated successfully',
+        contact
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /deliveries/:id/contact - alias for PUT
+router.post(
+  '/deliveries/:id/contact',
+  authenticate(),
+  requireRole(['admin', 'dispatcher']),
+  validate(updateContactSchema),
+  (req, res, next) => {
+    try {
+      const notificationService = require('../services/notificationService');
+      const auditService = require('../services/auditService');
+      const { name, email, phone, consent } = req.body;
+      const contact = notificationService.registerContact(
+        req.params.id,
+        { name, email, phone, consent: Boolean(consent) },
+        req.user?.username || req.performedBy || 'dispatcher'
+      );
+
+      auditService.log({
+        entity_type: 'customer_contact',
+        entity_id: req.params.id,
+        action: 'CUSTOMER_CONTACT_UPDATED',
+        old_state: null,
+        new_state: { consent: contact.consent ? 1 : 0 },
+        performed_by: req.user?.username || req.performedBy || 'dispatcher',
+        details: `Customer notification consent set to ${contact.consent ? 'granted' : 'revoked'}`
+      });
+
+      res.status(200).json({
+        message: 'Customer contact registered successfully',
+        contact
       });
     } catch (err) {
       next(err);

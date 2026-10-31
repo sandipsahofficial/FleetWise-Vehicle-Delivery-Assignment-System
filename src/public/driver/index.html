@@ -75,6 +75,30 @@
         <p style="font-size: 13px; color: #64748b;">Loading deliveries…</p>
       </div>
     </div>
+
+    <!-- Log Fuel for Current Vehicle -->
+    <div class="card" id="fuelLogCard">
+      <div class="card-title">⛽ Log Fuel for Current Vehicle</div>
+      <form id="formDriverFuel" onsubmit="driverApp.submitFuelLog(event)">
+        <div style="margin-bottom: 8px;">
+          <label style="font-size: 12px; font-weight: 600;">Odometer Reading (km) *</label>
+          <input type="number" step="0.1" id="inputFuelOdometer" class="form-input" style="letter-spacing: normal; text-align: left;" required placeholder="e.g. 15420">
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <div style="flex: 1;">
+            <label style="font-size: 12px; font-weight: 600;">Liters *</label>
+            <input type="number" step="0.1" id="inputFuelLiters" class="form-input" style="letter-spacing: normal; text-align: left;" required placeholder="e.g. 45.0">
+          </div>
+          <div style="flex: 1;">
+            <label style="font-size: 12px; font-weight: 600;">Cost ($) *</label>
+            <input type="number" step="0.01" id="inputFuelCost" class="form-input" style="letter-spacing: normal; text-align: left;" required placeholder="e.g. 78.50">
+          </div>
+        </div>
+        <div id="fuelErrorMsg" style="color: #dc2626; font-size: 12px; margin-bottom: 8px; display: none;"></div>
+        <div id="fuelSuccessMsg" style="color: #16a34a; font-size: 12px; margin-bottom: 8px; display: none;"></div>
+        <button type="submit" class="btn btn-secondary" style="width: 100%;">Record Fuel Purchase</button>
+      </form>
+    </div>
   </main>
 
   <!-- Modal: Complete with OTP -->
@@ -113,4 +137,3 @@
   <script src="/driver/driver.js"></script>
 </body>
 </html>
-

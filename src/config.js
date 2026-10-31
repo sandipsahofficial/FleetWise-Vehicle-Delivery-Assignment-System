@@ -7,6 +7,9 @@ if (
   process.argv.some(arg => arg.includes('tests') || arg.endsWith('.test.js'))
 ) {
   process.env.NODE_ENV = 'test';
+  if (process.env.ALLOW_DEMO_SEED === undefined) {
+    process.env.ALLOW_DEMO_SEED = 'true';
+  }
 }
 
 const DEFAULT_JWT_SECRET = 'supersecret_fleetwise_jwt_access_token_key_change_in_production';
@@ -21,6 +24,9 @@ const jwtSecret = process.env.JWT_SECRET || (isTest ? 'test_jwt_secret_key_12345
 const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET || (isTest ? 'test_jwt_refresh_secret_key_12345' : DEFAULT_REFRESH_SECRET);
 const otpHmacSecret = process.env.OTP_HMAC_SECRET || (isTest ? 'test_otp_hmac_secret_key_12345' : DEFAULT_OTP_HMAC_SECRET);
 
+const notificationsEnabled = process.env.NOTIFICATIONS_ENABLED !== 'false';
+const notificationProvider = process.env.NOTIFICATION_PROVIDER || (isProd ? 'smtp' : 'console');
+
 if (isProd) {
   if (!process.env.JWT_SECRET || process.env.JWT_SECRET === DEFAULT_JWT_SECRET) {
     throw new Error('FATAL: JWT_SECRET environment variable must be explicitly defined and cannot be the default value in production.');
@@ -30,6 +36,16 @@ if (isProd) {
   }
   if (!process.env.OTP_HMAC_SECRET || process.env.OTP_HMAC_SECRET === DEFAULT_OTP_HMAC_SECRET) {
     throw new Error('FATAL: OTP_HMAC_SECRET environment variable must be explicitly defined and cannot be the default value in production.');
+  }
+  if (notificationsEnabled) {
+    if (notificationProvider === 'console') {
+      throw new Error('FATAL: NOTIFICATION_PROVIDER cannot be "console" in production. Configure a valid SMTP provider or explicitly set NOTIFICATIONS_ENABLED=false.');
+    }
+    if (notificationProvider === 'smtp') {
+      if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        throw new Error('FATAL: SMTP_HOST, SMTP_USER, and SMTP_PASS must be configured in production when notifications are enabled.');
+      }
+    }
   }
 }
 
@@ -47,6 +63,25 @@ const config = {
   },
   otp: {
     hmacSecret: otpHmacSecret
+  },
+  routing: {
+    osrmUrl: process.env.OSRM_URL || 'http://router.project-osrm.org',
+    avgSpeedKmh: parseFloat(process.env.ROUTING_AVG_SPEED_KMH || '40'),
+    timeoutMs: parseInt(process.env.ROUTING_TIMEOUT_MS || '3000', 10)
+  },
+  notifications: {
+    enabled: notificationsEnabled,
+    provider: notificationProvider,
+    smtp: {
+      host: process.env.SMTP_HOST || 'smtp.example.com',
+      port: parseInt(process.env.SMTP_PORT || '587', 10),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER || '',
+        pass: process.env.SMTP_PASS || ''
+      },
+      from: process.env.SMTP_FROM || 'FleetWise <no-reply@fleetwise.local>'
+    }
   },
   adminSeed: {
     username: process.env.ADMIN_USERNAME || null,

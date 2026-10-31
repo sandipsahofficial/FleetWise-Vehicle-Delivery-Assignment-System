@@ -204,6 +204,22 @@ class DeliveryService {
         WHERE id = ?
       `).run(targetStatus, id);
 
+      // Enqueue notification outbox record in the SAME atomic transaction
+      try {
+        const notificationService = require('./notificationService');
+        if (targetStatus === 'in_transit') {
+          notificationService.enqueueNotification(db, {
+            deliveryId: id,
+            event: 'trip_started'
+          });
+        } else if (targetStatus === 'delivered') {
+          notificationService.enqueueNotification(db, {
+            deliveryId: id,
+            event: 'delivered'
+          });
+        }
+      } catch (_) {}
+
       db.exec('COMMIT');
 
       auditService.log({

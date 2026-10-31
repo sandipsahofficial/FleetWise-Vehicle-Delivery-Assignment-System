@@ -1,5 +1,7 @@
+const crypto = require('node:crypto');
 const { getDb } = require('../db/database');
 const config = require('../config');
+const logger = require('../utils/logger');
 const vehicleService = require('./vehicleService');
 const driverService = require('./driverService');
 const deliveryService = require('./deliveryService');
@@ -9,8 +11,9 @@ const { ForbiddenError } = require('../utils/errors');
 
 class SeedService {
   seedDemoData() {
-    if (config.isProd || process.env.NODE_ENV === 'production') {
-      throw new ForbiddenError('Demo data and demo user seeding is strictly disabled in production environments.');
+    const isAllowed = process.env.ALLOW_DEMO_SEED === 'true';
+    if (!isAllowed || config.isProd || process.env.NODE_ENV === 'production') {
+      throw new ForbiddenError('Demo data seeding is disabled. ALLOW_DEMO_SEED=true is required, and seeding is strictly disabled in production.');
     }
 
     const db = getDb();
@@ -80,16 +83,25 @@ class SeedService {
       availability_status: 'unavailable'
     });
 
-    // 3. Seed Demo Users for Development Testing
+    // 3. Seed Demo Users for Development Testing (no hardcoded fixed credentials in source)
+    const dispatcherPass = process.env.DEMO_DISPATCHER_PASSWORD || crypto.randomBytes(12).toString('base64url');
+    const driverPass = process.env.DEMO_DRIVER_PASSWORD || crypto.randomBytes(12).toString('base64url');
+
     try {
-      authService.register({ username: 'dispatcher_dan', password: 'DispatcherPass123!', role: 'dispatcher' });
+      authService.register({ username: 'dispatcher', password: dispatcherPass, role: 'dispatcher' });
     } catch (_) {}
     try {
-      authService.register({ username: 'driver_1', password: 'DriverPass123!', role: 'driver', driver_id: d1.id });
+      authService.register({ username: 'driver1', password: driverPass, role: 'driver', driver_id: d1.id });
     } catch (_) {}
-    try {
-      authService.register({ username: 'driver_2', password: 'DriverPass123!', role: 'driver', driver_id: d2.id });
-    } catch (_) {}
+
+    if (!process.env.DEMO_DISPATCHER_PASSWORD || !process.env.DEMO_DRIVER_PASSWORD) {
+      logger.info({
+        demoCredentials: {
+          dispatcher: { username: 'dispatcher', password: process.env.DEMO_DISPATCHER_PASSWORD ? '[CONFIGURED_IN_ENV]' : dispatcherPass },
+          driver: { username: 'driver1', password: process.env.DEMO_DRIVER_PASSWORD ? '[CONFIGURED_IN_ENV]' : driverPass }
+        }
+      }, 'One-time generated random credentials for demo users');
+    }
 
     // 4. Seed Deliveries
     // Delivery 1: In transit

@@ -35,6 +35,7 @@ function initDatabase(customPath) {
       registration_number TEXT UNIQUE NOT NULL,
       type TEXT NOT NULL,
       capacity REAL NOT NULL,
+      odometer REAL NOT NULL DEFAULT 0,
       status TEXT NOT NULL CHECK(status IN ('available', 'assigned', 'maintenance', 'inactive')) DEFAULT 'available',
       created_at TEXT NOT NULL DEFAULT (DATETIME('now')),
       updated_at TEXT NOT NULL DEFAULT (DATETIME('now'))
@@ -73,7 +74,6 @@ function initDatabase(customPath) {
       is_active INTEGER NOT NULL DEFAULT 1 CHECK(is_active IN (0, 1))
     );
 
-    -- Audit Log Table
     CREATE TABLE IF NOT EXISTS audit_logs (
       id TEXT PRIMARY KEY,
       entity_type TEXT NOT NULL,
@@ -86,7 +86,7 @@ function initDatabase(customPath) {
       details TEXT
     );
 
-    -- Users Table (Phase 1 Authentication & RBAC)
+    -- Authentication and RBAC (Phase 1)
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
@@ -97,7 +97,6 @@ function initDatabase(customPath) {
       updated_at TEXT NOT NULL DEFAULT (DATETIME('now'))
     );
 
-    -- Refresh Tokens Table (Phase 1 SHA-256 Hashed Storage)
     CREATE TABLE IF NOT EXISTS refresh_tokens (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -107,7 +106,7 @@ function initDatabase(customPath) {
       created_at TEXT NOT NULL DEFAULT (DATETIME('now'))
     );
 
-    -- Driver Live Locations (Phase 2 Real-Time Core)
+    -- Driver Live Telematics (Phase 2)
     CREATE TABLE IF NOT EXISTS driver_locations (
       driver_id TEXT PRIMARY KEY REFERENCES drivers(id) ON DELETE CASCADE,
       lat REAL NOT NULL,
@@ -178,7 +177,93 @@ function initDatabase(customPath) {
 
     -- Performance index on delivery status
     CREATE INDEX IF NOT EXISTS idx_deliveries_status ON deliveries(status);
+
+    -- Phase 3B: Customer Contacts (Separate table, never touches deliveries table)
+    CREATE TABLE IF NOT EXISTS customer_contacts (
+      id TEXT PRIMARY KEY,
+      delivery_id TEXT UNIQUE NOT NULL REFERENCES deliveries(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT,
+      consent INTEGER NOT NULL DEFAULT 0,
+      consent_at TEXT,
+      consent_recorded_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (DATETIME('now')),
+      updated_at TEXT NOT NULL DEFAULT (DATETIME('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_customer_contacts_delivery ON customer_contacts(delivery_id);
+
+    -- Phase 3B: Notification Outbox
+    CREATE TABLE IF NOT EXISTS notification_outbox (
+      id TEXT PRIMARY KEY,
+      delivery_id TEXT NOT NULL REFERENCES deliveries(id) ON DELETE CASCADE,
+      event TEXT NOT NULL,
+      channel TEXT NOT NULL DEFAULT 'email',
+      recipient TEXT NOT NULL,
+      template TEXT NOT NULL,
+      params_json TEXT,
+      status TEXT NOT NULL CHECK(status IN ('pending', 'processing', 'sent', 'failed', 'cancelled', 'skipped')) DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      max_attempts INTEGER NOT NULL DEFAULT 3,
+      idempotency_key TEXT UNIQUE NOT NULL,
+      locked_until TEXT,
+      error_message TEXT,
+      created_at TEXT NOT NULL DEFAULT (DATETIME('now')),
+      sent_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_outbox_status_attempts ON notification_outbox(status, attempts);
+    CREATE INDEX IF NOT EXISTS idx_outbox_idempotency ON notification_outbox(idempotency_key);
+
+    -- Phase 3B: Vehicle Maintenance Schedules & Records
+    CREATE TABLE IF NOT EXISTS maintenance_schedules (
+      id TEXT PRIMARY KEY,
+      vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+      service_type TEXT NOT NULL,
+      due_date TEXT,
+      due_odometer REAL,
+      status TEXT NOT NULL CHECK(status IN ('pending', 'completed', 'overdue')) DEFAULT 'pending',
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (DATETIME('now')),
+      updated_at TEXT NOT NULL DEFAULT (DATETIME('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_maint_schedules_vehicle ON maintenance_schedules(vehicle_id);
+
+    CREATE TABLE IF NOT EXISTS maintenance_records (
+      id TEXT PRIMARY KEY,
+      vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+      service_type TEXT NOT NULL,
+      completed_at TEXT NOT NULL DEFAULT (DATETIME('now')),
+      odometer REAL NOT NULL,
+      cost REAL NOT NULL,
+      performed_by TEXT NOT NULL,
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (DATETIME('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_maint_records_vehicle ON maintenance_records(vehicle_id);
+
+    -- Phase 3B: Fuel Logs (Driver-scoped, monotonic odometer)
+    CREATE TABLE IF NOT EXISTS fuel_logs (
+      id TEXT PRIMARY KEY,
+      vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE RESTRICT,
+      driver_id TEXT NOT NULL REFERENCES drivers(id) ON DELETE RESTRICT,
+      liters REAL NOT NULL,
+      cost REAL NOT NULL,
+      odometer REAL NOT NULL,
+      logged_at TEXT NOT NULL DEFAULT (DATETIME('now')),
+      created_at TEXT NOT NULL DEFAULT (DATETIME('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_fuel_logs_vehicle ON fuel_logs(vehicle_id);
+    CREATE INDEX IF NOT EXISTS idx_fuel_logs_driver ON fuel_logs(driver_id);
   `);
+
+  // Safe migration for vehicles.odometer
+  try {
+    const vehColInfo = db.prepare("PRAGMA table_info(vehicles)").all();
+    const hasOdometer = vehColInfo.some(c => c.name === 'odometer');
+    if (!hasOdometer) {
+      db.exec("ALTER TABLE vehicles ADD COLUMN odometer REAL NOT NULL DEFAULT 0;");
+    }
+  } catch (_) {}
 
   // Safe migration for required_capacity and required_vehicle_type on existing tables
   try {
@@ -199,6 +284,19 @@ function initDatabase(customPath) {
     const hasDriverId = userColInfo.some(c => c.name === 'driver_id');
     if (!hasDriverId) {
       db.exec("ALTER TABLE users ADD COLUMN driver_id TEXT REFERENCES drivers(id) ON DELETE SET NULL;");
+    }
+  } catch (_) {}
+
+  // Safe migration for customer_contacts consent columns
+  try {
+    const contactCols = db.prepare("PRAGMA table_info(customer_contacts)").all();
+    if (contactCols.length > 0) {
+      if (!contactCols.some(c => c.name === 'consent_at')) {
+        db.exec("ALTER TABLE customer_contacts ADD COLUMN consent_at TEXT;");
+      }
+      if (!contactCols.some(c => c.name === 'consent_recorded_by')) {
+        db.exec("ALTER TABLE customer_contacts ADD COLUMN consent_recorded_by TEXT;");
+      }
     }
   } catch (_) {}
 

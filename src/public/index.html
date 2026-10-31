@@ -175,6 +175,36 @@
           <span class="sidebar-nav-label">Audit Trail</span>
         </button>
 
+        <div class="sidebar-section-label" id="sidebarSectionOps">Operations</div>
+
+        <button id="tabMaintenance" class="sidebar-nav-item" role="tab" aria-selected="false"
+                onclick="app.switchView('maintenance')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+          </svg>
+          <span class="sidebar-nav-label">Maintenance & Fuel</span>
+          <span class="sidebar-nav-badge urgent" id="badgeOverdueMaint" style="display:none;">0</span>
+        </button>
+
+        <button id="tabReports" class="sidebar-nav-item" role="tab" aria-selected="false"
+                onclick="app.switchView('reports')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span class="sidebar-nav-label">Reports & Exports</span>
+        </button>
+
+        <button id="tabOutbox" class="sidebar-nav-item" role="tab" aria-selected="false"
+                onclick="app.switchView('outbox')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+            <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+          </svg>
+          <span class="sidebar-nav-label">Outbox Notifications</span>
+        </button>
+
       </nav>
 
       <!-- Bottom: User & Role & Health -->
@@ -290,6 +320,20 @@
 
       <!-- Workspace -->
       <main class="workspace">
+
+        <!-- Phase 3B: Overdue Maintenance Alert Banner -->
+        <div id="overdueMaintenanceBanner" class="alert alert-warning" style="display: none; margin-bottom: 20px; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <span><strong>Maintenance Alert:</strong> <span id="overdueCountText">0</span> vehicle(s) currently have overdue maintenance schedules.</span>
+          </div>
+          <button class="btn btn-secondary btn-xs" onclick="app.switchView('maintenance')">View Maintenance</button>
+        </div>
+
 
         <!-- ── KPI Cards (always visible) ────────────────── -->
         <section aria-label="Operational Metrics">
@@ -889,6 +933,122 @@
         </section>
 
         <!-- ═══════════════════════════════════════════════
+             VIEW 8: MAINTENANCE & FUEL LOGS (Phase 3B)
+        ════════════════════════════════════════════════ -->
+        <section id="viewMaintenance" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Fleet Maintenance &amp; Fuel Telematics</h2>
+              <p class="panel-sub">Schedules, overdue inspections, verified service records, and fuel logs</p>
+            </div>
+            <div class="panel-actions">
+              <button class="btn btn-secondary btn-sm" onclick="app.openModal('modalScheduleMaint')">+ Schedule Service</button>
+              <button class="btn btn-primary btn-sm" onclick="app.openModal('modalLogFuel')">+ Log Fuel</button>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 16px;">
+            <div class="table-card">
+              <div class="table-header-bar">
+                <h4>Maintenance Schedules</h4>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table zebra" id="maintSchedulesTable">
+                  <thead><tr><th>Vehicle</th><th>Service</th><th>Due</th><th>Status</th></tr></thead>
+                  <tbody id="maintSchedulesBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="table-card">
+              <div class="table-header-bar">
+                <h4>Fuel Logs</h4>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table zebra" id="fuelLogsTable">
+                  <thead><tr><th>Vehicle</th><th>Driver</th><th>Liters</th><th>Cost</th><th>Odometer</th></tr></thead>
+                  <tbody id="fuelLogsBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 9: REPORTS & COMPLIANCE EXPORTS (Phase 3B)
+        ════════════════════════════════════════════════ -->
+        <section id="viewReports" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Reports &amp; Operational Exports</h2>
+              <p class="panel-sub">CSV spreadsheets with formula-injection neutralization and Executive PDF summary</p>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 16px;">
+            <div class="card">
+              <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">📦 Deliveries Report</h3>
+              <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">Export delivery requests, routing, statuses, and performance metadata.</p>
+              <button class="btn btn-secondary" onclick="app.downloadReport('deliveries', 'csv')">Download CSV</button>
+            </div>
+
+            <div class="card">
+              <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">🧑‍✈️ Driver Performance</h3>
+              <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">Driver workloads, fulfillment completion rates, and status history.</p>
+              <button class="btn btn-secondary" onclick="app.downloadReport('drivers', 'csv')">Download CSV</button>
+            </div>
+
+            <div class="card">
+              <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">🚚 Vehicle Utilization</h3>
+              <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">Odometer tracking, vehicle capacity utilization, and deployment metrics.</p>
+              <button class="btn btn-secondary" onclick="app.downloadReport('vehicles', 'csv')">Download CSV</button>
+            </div>
+
+            <div class="card">
+              <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">⛽ Fuel &amp; Maintenance</h3>
+              <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">Operating expenditures, fuel consumption logs, and maintenance events.</p>
+              <button class="btn btn-secondary" onclick="app.downloadReport('fuel-maintenance', 'csv')">Download CSV</button>
+            </div>
+
+            <div class="card" style="border: 2px solid #2563eb; background: #eff6ff;">
+              <h3 style="font-size: 16px; font-weight: 700; color: #1e40af; margin-bottom: 8px;">📊 Executive Summary PDF</h3>
+              <p style="font-size: 13px; color: #1e3a8a; margin-bottom: 16px;">Formatted executive PDF covering fleet size, fulfillment rates, and costs.</p>
+              <button class="btn btn-primary" onclick="app.downloadReport('summary', 'pdf')">Generate &amp; Download PDF</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             VIEW 10: NOTIFICATION OUTBOX (Phase 3B)
+        ════════════════════════════════════════════════ -->
+        <section id="viewOutbox" class="view-panel" style="display:none;" role="tabpanel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Customer Notification Outbox</h2>
+              <p class="panel-sub">Asynchronous transactional event dispatcher with exponential backoff and idempotency</p>
+            </div>
+            <div class="panel-actions">
+              <button class="btn btn-secondary btn-sm" onclick="app.loadOutboxData()">↻ Refresh Outbox</button>
+            </div>
+          </div>
+
+          <div id="outboxDisabledBanner" class="alert alert-info" style="display:none; margin-top: 14px;">
+            <strong>Notifications Status:</strong> Off (NOTIFICATIONS_ENABLED=false). Transactional notification delivery is currently disabled.
+          </div>
+
+          <div class="table-card" style="margin-top: 16px;">
+            <div class="table-responsive">
+              <table class="data-table zebra" id="outboxTable">
+                <thead>
+                  <tr><th>ID</th><th>Delivery ID</th><th>Event</th><th>Channel</th><th>Recipient</th><th>Status</th><th>Attempts</th><th>Sent At</th></tr>
+                </thead>
+                <tbody id="outboxBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
              VIEW 7: AUDIT TRAIL
         ════════════════════════════════════════════════ -->
         <section id="viewAudit" class="view-panel" style="display:none;" role="tabpanel">
@@ -1012,11 +1172,60 @@
           <small class="form-help">Only drivers with status 'available' can be assigned.</small>
         </div>
 
+        <div id="assignOverdueWarningBox" class="alert alert-warning" style="display:none; margin-bottom: 12px;">
+          <p><strong>Overdue Maintenance Warning:</strong> This vehicle has overdue maintenance scheduled.</p>
+          <div class="form-group" style="margin-top: 8px;">
+            <label for="assignOverrideReason">Override Justification <span class="required">*</span> (min 10 characters):</label>
+            <input type="text" id="assignOverrideReason" class="form-input" placeholder="e.g. Critical high-priority delivery approved before scheduled service" />
+          </div>
+        </div>
+
         <div id="assignConflictNotice" class="alert alert-danger" style="display:none;"></div>
 
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalAssign')">Cancel</button>
           <button type="submit" id="btnSubmitAssign" class="btn btn-primary">Confirm Assignment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MODAL: CUSTOMER CONTACT (Phase 3B / GDPR Consent)
+  ════════════════════════════════════════════════════════ -->
+  <div id="modalCustomerContact" class="modal-overlay" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-labelledby="modalContactTitle">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalContactTitle" class="modal-title">Customer Contact & Consent</h3>
+          <p class="modal-subtitle">Manage customer notification recipient and explicit communication consent</p>
+        </div>
+        <button class="modal-close" onclick="app.closeModal('modalCustomerContact')" aria-label="Close">&times;</button>
+      </div>
+      <form id="formCustomerContact" onsubmit="app.saveCustomerContact(event)">
+        <input type="hidden" id="contactDeliveryId" />
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="contactName">Customer Name <span class="required">*</span></label>
+            <input type="text" id="contactName" class="form-input" placeholder="e.g. John Doe" required />
+          </div>
+          <div class="form-group">
+            <label for="contactEmail">Customer Email <span class="required">*</span></label>
+            <input type="email" id="contactEmail" class="form-input" placeholder="customer@example.com" required />
+          </div>
+          <div class="form-group">
+            <label for="contactPhone">Customer Phone</label>
+            <input type="text" id="contactPhone" class="form-input" placeholder="+1-555-0199" />
+          </div>
+          <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="contactConsent" />
+            <label for="contactConsent" style="margin-bottom: 0;">Customer has explicitly consented to delivery notifications (GDPR/TCPA)</label>
+          </div>
+          <div id="contactMetadataNotice" class="text-muted text-xs" style="margin-top: 6px;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="app.closeModal('modalCustomerContact')">Cancel</button>
+          <button type="submit" id="btnSubmitContact" class="btn btn-primary">Save Contact</button>
         </div>
       </form>
     </div>
