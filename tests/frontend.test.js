@@ -34,11 +34,22 @@ test('Phase 5 - Frontend Static Serving & Demo Seeding', async (t) => {
     assert.ok(css.includes('.kpi-card'));
   });
 
-  await t.test('GET /app.js serves frontend controller', async () => {
+  await t.test('GET /app.js serves frontend controller and dispatcher dashboard displays ETA', async () => {
     const res = await fetch(`${baseUrl}/app.js`);
     assert.equal(res.status, 200);
     const js = await res.text();
     assert.ok(js.includes('FleetWise - Frontend Client Application'));
+    assert.ok(js.includes('ETA: ~'), 'Dispatcher dashboard must display ETA for assigned and in-transit deliveries');
+  });
+
+  await t.test('POST /api/seed rejects with 403 when ALLOW_DEMO_SEED is not true', async () => {
+    process.env.ALLOW_DEMO_SEED = 'false';
+    try {
+      const res = await fetch(`${baseUrl}/api/seed`, { method: 'POST' });
+      assert.equal(res.status, 403);
+    } finally {
+      process.env.ALLOW_DEMO_SEED = 'true';
+    }
   });
 
   await t.test('POST /api/seed seeds data and dashboard reflects it', async () => {

@@ -16,13 +16,13 @@ services:
       - DB_PATH=/data/fleetwise.db
       - STORAGE_DIR=/data/proofs
       - BACKUP_DIR=/data/backups
-      - JWT_SECRET=${JWT_SECRET:-production_secure_jwt_access_secret_please_change_in_env_file_32chars}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-production_secure_jwt_refresh_secret_please_change_in_env_file_32chars}
-      - OTP_HMAC_SECRET=${OTP_HMAC_SECRET:-production_secure_otp_hmac_secret_please_change_in_env_file_32chars}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in .env (generate with openssl rand -hex 32)}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET must be set in .env (generate with openssl rand -hex 32)}
+      - OTP_HMAC_SECRET=${OTP_HMAC_SECRET:?OTP_HMAC_SECRET must be set in .env (generate with openssl rand -hex 32)}
       - JWT_EXPIRES_IN=15m
       - JWT_REFRESH_EXPIRES_IN=7d
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-AdminSecurePassword123!}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set in .env}
       - NOTIFICATIONS_ENABLED=${NOTIFICATIONS_ENABLED:-false}
       - LOG_LEVEL=info
       - CORS_ORIGIN=*

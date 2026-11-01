@@ -33,7 +33,7 @@ paths:
                   example: admin
                 password:
                   type: string
-                  example: AdminSecurePassword123!
+                  example: Str0ngP@ssw0rd!
       responses:
         "200":
           description: Login successful
@@ -87,7 +87,7 @@ paths:
                   example: dispatcher1
                 password:
                   type: string
-                  example: SecurePass123!
+                  example: Str0ngP@ssw0rd!
                 role:
                   type: string
                   enum:

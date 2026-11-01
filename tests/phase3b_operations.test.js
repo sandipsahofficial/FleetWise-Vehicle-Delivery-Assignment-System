@@ -138,7 +138,21 @@ test('Phase 3B — Distance & ETA Routing, Outbox Notifications, Maintenance & F
     });
     assert.equal(driverPutContactRes.status, 403);
 
-    // 2. Register contact via PUT /deliveries/:id/contact (consent defaults to false)
+    // 2. Register contact via PUT /deliveries/:id/contact (verify consent defaults to off/0 when omitted)
+    const defaultConsentRes = await fetch(`${baseUrl}/deliveries/${delivery.id}/contact`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${dispatcherTokens.accessToken}` },
+      body: JSON.stringify({
+        name: 'Jane Customer',
+        email: 'jane.customer@example.com'
+      })
+    });
+    assert.equal(defaultConsentRes.status, 200);
+    const defaultData = await defaultConsentRes.json();
+    assert.equal(defaultData.contact.consent, 0, 'Consent must default to off (0) when omitted');
+    assert.equal(defaultData.contact.consent_at, null);
+
+    // Update contact granting explicit consent (consent: true)
     const putRes = await fetch(`${baseUrl}/deliveries/${delivery.id}/contact`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${dispatcherTokens.accessToken}` },
@@ -237,6 +251,23 @@ test('Phase 3B — Distance & ETA Routing, Outbox Notifications, Maintenance & F
     });
     const count = db.prepare("SELECT COUNT(*) as c FROM notification_outbox WHERE delivery_id = ? AND event = 'delivery_assigned'").get(delivery.id).c;
     assert.equal(count, 1, 'Idempotency prevented duplicate outbox insertion');
+
+    // Verify NOTIFICATIONS_ENABLED=false enqueues nothing
+    const config = require('../src/config');
+    const origNotifs = config.notifications.enabled;
+    config.notifications.enabled = false;
+    try {
+      const deliveryOff = await createDelivery('Pickup Off', 'Dropoff Off');
+      await fetch(`${baseUrl}/deliveries/${deliveryOff.id}/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminTokens.accessToken}` },
+        body: JSON.stringify({ vehicle_id: 'VEH-401', driver_id: 'DRV-401' })
+      });
+      const offCount = db.prepare('SELECT COUNT(*) as c FROM notification_outbox WHERE delivery_id = ?').get(deliveryOff.id).c;
+      assert.equal(offCount, 0, 'Expected zero outbox rows when NOTIFICATIONS_ENABLED=false');
+    } finally {
+      config.notifications.enabled = origNotifs;
+    }
 
     // Verify Outbox list endpoint
     const listRes = await fetch(`${baseUrl}/api/notifications/outbox`, {

@@ -4,11 +4,12 @@ const { UnauthorizedError } = require('../utils/errors');
 
 /**
  * Authentication Middleware.
- * - In non-test environments (NODE_ENV !== 'test'): strictly requires a valid signed JWT Bearer token.
- * - When NODE_ENV === 'test': permits legacy X-User-Role header and default-to-admin fallback
- *   to preserve existing test suites.
+ * - In non-test environments (NODE_ENV !== 'test') or when options.strict === true:
+ *   strictly requires a valid signed JWT Bearer token.
+ * - When NODE_ENV === 'test' (and options.strict !== true):
+ *   permits legacy X-User-Role header and default-to-admin fallback to preserve existing test suites.
  */
-function authenticate(options = { optional: false }) {
+function authenticate(options = { optional: false, strict: false }) {
   return (req, res, next) => {
     // Check if app has dynamic config override (e.g. from createApp factory in tests)
     const activeConfig = req.app?.locals?.config || config;
@@ -39,13 +40,13 @@ function authenticate(options = { optional: false }) {
       }
     }
 
-    // STRICT IN ALL NON-TEST ENVIRONMENTS: refuse fallback, even if legacy X-User-Role header is present
-    if (!isTestMode) {
+    // STRICT IN ALL NON-TEST ENVIRONMENTS or when explicitly strict: refuse fallback
+    if (!isTestMode || options.strict) {
       if (options.optional) return next();
       return next(new UnauthorizedError('Authentication required. Missing Bearer token.'));
     }
 
-    // TEST ENVIRONMENT FALLBACK ONLY (when NODE_ENV === 'test')
+    // TEST ENVIRONMENT FALLBACK ONLY (when NODE_ENV === 'test' and strict !== true)
     const rawRole = req.headers['x-user-role'];
     const testRole = rawRole 
       ? (rawRole.toLowerCase().trim() === 'fleet_manager' ? 'admin' : rawRole.toLowerCase().trim())
@@ -60,7 +61,7 @@ function authenticate(options = { optional: false }) {
     req.userRole = testRole;
     req.performedBy = req.user.username;
 
-    next();
+    return next();
   };
 }
 

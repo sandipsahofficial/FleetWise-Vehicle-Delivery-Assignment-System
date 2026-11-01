@@ -1,8 +1,20 @@
-const rateLimit = require('express-rate-limit');
+const { rateLimit, MemoryStore } = require('express-rate-limit');
 const config = require('../config');
+
+// Dedicated in-memory stores for rate limiters (accessible for test resets)
+const authStore = new MemoryStore();
+const apiStore = new MemoryStore();
+const trackingStore = new MemoryStore();
+
+function resetRateLimiters() {
+  authStore.resetAll();
+  apiStore.resetAll();
+  trackingStore.resetAll();
+}
 
 // Stricter rate limiter for authentication endpoints (prevent brute-force password guessing)
 const authLimiter = rateLimit({
+  store: authStore,
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: config.isTest ? 10000 : 10, // 10 attempts per 15 min in prod, generous in test
   standardHeaders: true,
@@ -16,6 +28,7 @@ const authLimiter = rateLimit({
 
 // Standard API rate limiter for general endpoints
 const apiLimiter = rateLimit({
+  store: apiStore,
   windowMs: 60 * 1000, // 1 minute
   max: config.isTest ? 100000 : 120, // 120 reqs/min in prod
   standardHeaders: true,
@@ -29,6 +42,7 @@ const apiLimiter = rateLimit({
 
 // Rate limiter for public customer tracking endpoint (per-IP limit)
 const trackingLimiter = rateLimit({
+  store: trackingStore,
   windowMs: 60 * 1000, // 1 minute
   max: config.isTest ? (process.env.TEST_TRACKING_RATE_LIMIT ? parseInt(process.env.TEST_TRACKING_RATE_LIMIT, 10) : 1000) : 30, // 30 reqs/min per IP in prod
   standardHeaders: true,
@@ -43,5 +57,9 @@ const trackingLimiter = rateLimit({
 module.exports = {
   authLimiter,
   apiLimiter,
-  trackingLimiter
+  trackingLimiter,
+  authStore,
+  apiStore,
+  trackingStore,
+  resetRateLimiters
 };

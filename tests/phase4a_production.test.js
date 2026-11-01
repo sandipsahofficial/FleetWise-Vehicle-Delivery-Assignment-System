@@ -182,10 +182,7 @@ test('Phase 4A — Production Readiness, Observability, Health/Ready Probes & Ba
     const healthRes = await fetch(`${baseUrl}/health`);
     assert.equal(healthRes.status, 200);
     const healthBody = await healthRes.json();
-    assert.equal(healthBody.status, 'UP');
-    assert.equal(healthBody.service, 'FleetWise');
-    assert.equal(healthBody.database, 'connected');
-    assert.ok(typeof healthBody.uptime === 'number');
+    assert.deepEqual(healthBody, { status: 'UP' });
 
     // GET /ready
     const readyRes = await fetch(`${baseUrl}/ready`);

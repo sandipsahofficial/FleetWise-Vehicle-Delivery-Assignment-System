@@ -6,9 +6,8 @@ const locationRepository = require('../repositories/locationRepository');
 const { locationUpdateSchema } = require('../schemas/locationSchemas');
 
 let ioInstance = null;
-const locationRateLimits = new Map(); // driverId -> Array<timestamp>
 
-function initSocket(httpServer) {
+function initSocket(httpServer, options = {}) {
   const io = new Server(httpServer, {
     cors: {
       origin: config.corsOrigin === '*' ? true : config.corsOrigin.split(','),
@@ -16,6 +15,12 @@ function initSocket(httpServer) {
       credentials: true
     }
   });
+
+  const locationRateLimits = new Map(); // driverId/userId -> Array<timestamp>
+  let clock = typeof options.clock === 'function' ? options.clock : () => Date.now();
+  io.setClock = (fn) => { clock = fn; };
+  io.getClock = () => clock;
+  io.locationRateLimits = locationRateLimits;
 
   // JWT Authentication Middleware for Socket Handshakes
   io.use((socket, next) => {
@@ -72,7 +77,8 @@ function initSocket(httpServer) {
     // Socket Driver Location Update Event
     socket.on('driver:location_update', (payload, callback) => {
       try {
-        if (socket.user.exp && Date.now() >= socket.user.exp * 1000) {
+        const now = clock();
+        if (socket.user.exp && now >= socket.user.exp * 1000) {
           if (callback) callback({ error: 'Access token expired' });
           socket.emit('token_expired', { message: 'Access token expired' });
           socket.disconnect(true);
@@ -96,7 +102,7 @@ function initSocket(httpServer) {
         }
 
         // Rate limiting: max 60 updates/min and min 200ms interval
-        const now = Date.now();
+        // Keyed by targetDriverId (or user ID)
         const timestamps = locationRateLimits.get(targetDriverId) || [];
         const recent = timestamps.filter((ts) => now - ts < 60000);
         if (recent.length >= 60) {
@@ -119,7 +125,7 @@ function initSocket(httpServer) {
           lng: parsed.lng,
           speed: parsed.speed,
           heading: parsed.heading,
-          timestamp: parsed.timestamp || new Date().toISOString()
+          timestamp: parsed.timestamp || new Date(now).toISOString()
         });
 
         // Broadcast to operators
@@ -134,6 +140,24 @@ function initSocket(httpServer) {
     socket.on('disconnect', () => {
       if (expiryTimer) clearTimeout(expiryTimer);
       logger.info({ username }, 'Socket client disconnected');
+
+      // Clean up rate limit state on disconnect if no other sockets remain for this driver/user
+      const key = socket.user?.role === 'driver' ? socket.user.driver_id : socket.user?.id;
+      if (key && io.sockets?.sockets) {
+        let stillConnected = false;
+        for (const [, s] of io.sockets.sockets) {
+          if (s.id !== socket.id) {
+            const otherKey = s.user?.role === 'driver' ? s.user.driver_id : s.user?.id;
+            if (otherKey === key) {
+              stillConnected = true;
+              break;
+            }
+          }
+        }
+        if (!stillConnected) {
+          locationRateLimits.delete(key);
+        }
+      }
     });
   });
 
@@ -146,7 +170,9 @@ function getIO() {
 }
 
 function resetRateLimits() {
-  locationRateLimits.clear();
+  if (ioInstance && ioInstance.locationRateLimits) {
+    ioInstance.locationRateLimits.clear();
+  }
 }
 
 module.exports = {

@@ -140,8 +140,6 @@ test('Phase 2 — Real-Time Core: WebSockets, Room Isolation, Post-Commit Events
   // -------------------------------------------------------------
   await t.test('2. Room Joining & Role-Based Event Isolation', async (t2) => {
     const adminSocket = connectClient(adminTokens.accessToken);
-    const { resetRateLimits } = require('../src/realtime/socket');
-    resetRateLimits();
     const driverASocket = connectClient(driverATokens.accessToken);
     const driverBSocket = connectClient(driverBTokens.accessToken);
 
@@ -503,23 +501,35 @@ test('Phase 2 — Real-Time Core: WebSockets, Room Isolation, Post-Commit Events
   // 7. Socket Location Event Rate Limiting
   // -------------------------------------------------------------
   await t.test('7. Socket location updates are rate-limited on rapid calls', async () => {
+    let mockTime = 1000000;
+    ioServer.setClock(() => mockTime);
+
     const driverASocket = connectClient(driverATokens.accessToken);
     await new Promise((res) => driverASocket.on('connect', res));
 
-    // Send 1st update
+    // Send 1st update at mockTime
     const ack1 = await new Promise((res) => {
       driverASocket.emit('driver:location_update', { lat: 40.71, lng: -74.01 }, res);
     });
     assert.ok(ack1 && ack1.success, `ack1 failed: ${ack1 ? ack1.error : 'no ack'}`);
 
-    // Immediately send 2nd update (< 200ms throttle)
+    // Advance mock time by only 100ms (< 200ms throttle interval)
+    mockTime += 100;
     const ack2 = await new Promise((res) => {
       driverASocket.emit('driver:location_update', { lat: 40.71, lng: -74.01 }, res);
     });
     assert.ok(ack2.error);
     assert.ok(ack2.error.includes('Rate limit'));
 
+    // Advance mock time past 200ms threshold (+ 250ms -> 350ms total)
+    mockTime += 250;
+    const ack3 = await new Promise((res) => {
+      driverASocket.emit('driver:location_update', { lat: 40.71, lng: -74.01 }, res);
+    });
+    assert.ok(ack3 && ack3.success, `ack3 failed: ${ack3 ? ack3.error : 'no ack'}`);
+
     driverASocket.disconnect();
+    ioServer.setClock(() => Date.now());
   });
 
   // -------------------------------------------------------------
