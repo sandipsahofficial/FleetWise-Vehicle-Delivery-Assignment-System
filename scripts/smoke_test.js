@@ -53,8 +53,13 @@ Environment Variables:
 }
 
 async function run() {
-  // If invoked unintentionally by node test runner discovery, return cleanly
-  if (process.execArgv.some((a) => a.startsWith('--test')) && !process.argv.includes('--url')) {
+  // If invoked unintentionally by node test runner discovery or without execution flags, return cleanly
+  if (
+    process.channel ||
+    process.env.NODE_TEST_CONTEXT ||
+    process.execArgv.some((a) => a.startsWith('--test')) ||
+    (!process.argv.includes('--url') && !process.env.SMOKE_ADMIN_PASSWORD)
+  ) {
     return;
   }
 
