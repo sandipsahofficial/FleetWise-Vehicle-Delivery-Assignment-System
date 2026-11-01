@@ -153,7 +153,7 @@ function createApp(customConfig = {}) {
   });
 
   // Centralized error handler with consistent structure
-  app.use((err, req, res, next) => {
+  app.use((err, req, res, _next) => {
     const status = err.statusCode || (err.status >= 400 && err.status < 600 ? err.status : 500);
     const response = {
       error: err.name || 'InternalServerError',

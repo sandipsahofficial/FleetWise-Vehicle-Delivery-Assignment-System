@@ -1,7 +1,7 @@
 let mapInstance = null;
 let vehicleMarker = null;
 
-function escapeHtml(str) {
+function _escapeHtml(str) {
   if (!str) return '';
   return String(str)
     .replace(/&/g, '&amp;')

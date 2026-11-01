@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test",
-    "lint": "node scripts/lint.js",
+    "lint": "eslint .",
     "backup": "node scripts/backup.js",
     "restore": "node scripts/restore.js"
   },
@@ -42,6 +42,12 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "globals": "^17.13.0",
     "socket.io-client": "^4.8.4"
+  },
+  "overrides": {
+    "minimatch": "^11.0.3"
   }
 }

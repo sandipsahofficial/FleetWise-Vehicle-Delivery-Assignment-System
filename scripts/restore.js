@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 const path = require('node:path');
-const fs = require('node:fs');
 const backupService = require('../src/services/backupService');
 
 // Parse CLI arguments

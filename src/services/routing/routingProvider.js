@@ -1,17 +1,16 @@
 /**
- * Abstract Routing Provider Interface
+ * Interface / Base Class for Routing Service Providers
  */
 class RoutingProvider {
   /**
-   * Calculates distance and estimated duration between two coordinate pairs.
-   * @param {{ lat: number, lng: number }} start
-   * @param {{ lat: number, lng: number }} end
+   * Calculates distance in kilometers and estimated duration in minutes between coordinates.
+   * @param {{ lat: number, lng: number }} _start
+   * @param {{ lat: number, lng: number }} _end
    * @returns {Promise<{ distanceKm: number, durationMinutes: number, provider: string }>}
    */
-  async getRoute(start, end) {
-    throw new Error('getRoute must be implemented by concrete routing provider');
+  async getRoute(_start, _end) {
+    throw new Error('RoutingProvider.getRoute() must be implemented by concrete subclass');
   }
 }
 
 module.exports = RoutingProvider;
-

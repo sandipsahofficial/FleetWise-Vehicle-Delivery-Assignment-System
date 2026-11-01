@@ -3,7 +3,6 @@ const { getDb } = require('../db/database');
 const deliveryRepository = require('../repositories/deliveryRepository');
 const assignmentRepository = require('../repositories/assignmentRepository');
 const vehicleRepository = require('../repositories/vehicleRepository');
-const driverRepository = require('../repositories/driverRepository');
 const auditService = require('./auditService');
 const { BadRequestError, NotFoundError, ConflictError } = require('../utils/errors');
 
@@ -13,8 +12,8 @@ class AssignmentService {
     if (!vehicleId) throw new BadRequestError('Vehicle ID is required');
     if (!driverId) throw new BadRequestError('Driver ID is required');
 
-    let performedBy = 'dispatcher';
-    let options = {};
+    let performedBy;
+    let options;
     if (typeof performedByOrOptions === 'object' && performedByOrOptions !== null) {
       options = performedByOrOptions;
       performedBy = options.performedBy || 'dispatcher';
@@ -223,7 +222,7 @@ class AssignmentService {
     } catch (err) {
       try {
         db.exec('ROLLBACK');
-      } catch (rollbackErr) {
+      } catch (_rollbackErr) {
         // Rollback error ignored if already rolled back
       }
 

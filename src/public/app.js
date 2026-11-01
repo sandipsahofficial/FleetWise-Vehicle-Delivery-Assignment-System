@@ -245,7 +245,7 @@ const app = {
       debounceTimer = setTimeout(() => {
         state.filters.search = e.target.value.trim();
         state.pagination.page = 1;
-        if (viewName === 'livemap') {
+        if (state.currentView === 'livemap') {
       this.initOrRefreshMap();
     }
     this.renderCurrentView();
@@ -587,14 +587,14 @@ const app = {
     this.renderDeliveriesTable();
   },
 
-  prevPage(type) {
+  prevPage(_type) {
     if (state.pagination.page > 1) {
       state.pagination.page--;
       this.renderDeliveriesTable();
     }
   },
 
-  nextPage(type) {
+  nextPage(_type) {
     const filtered = this.getFilteredDeliveries();
     const maxPage = Math.ceil(filtered.length / state.pagination.pageSize) || 1;
     if (state.pagination.page < maxPage) {
@@ -648,7 +648,7 @@ const app = {
         `<strong>${this.escapeHtml(d.assignment.driver.name)}</strong> <span class="text-muted text-sm">${this.escapeHtml(d.assignment.driver.phone)}</span>` :
         `<span class="text-muted">—</span>`;
 
-      let actionButtons = '';
+      let actionButtons;
       const contactBtn = `<button class="btn btn-ghost btn-sm" onclick="app.openContactModal('${d.id}')" title="Customer Contact">Contact</button>`;
 
       if (isPending) {
@@ -721,7 +721,7 @@ const app = {
       const card = document.createElement('div');
       card.className = 'board-card';
 
-      let cardActions = '';
+      let cardActions;
       if (d.status === 'pending') {
         cardActions = `
           <button class="btn btn-action-assign" onclick="app.openAssignModal('${d.id}')">Assign Resource</button>

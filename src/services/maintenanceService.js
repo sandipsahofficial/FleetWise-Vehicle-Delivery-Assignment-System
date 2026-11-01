@@ -2,7 +2,7 @@ const { getDb } = require('../db/database');
 const maintenanceRepository = require('../repositories/maintenanceRepository');
 const vehicleRepository = require('../repositories/vehicleRepository');
 const auditService = require('./auditService');
-const { BadRequestError, NotFoundError, ConflictError, ForbiddenError } = require('../utils/errors');
+const { BadRequestError, NotFoundError, ForbiddenError } = require('../utils/errors');
 
 class MaintenanceService {
   /**

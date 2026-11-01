@@ -27,7 +27,7 @@ test('Phase 2 — Real-Time Core: WebSockets, Room Isolation, Post-Commit Events
   });
 
   // Seed Users & Drivers
-  const adminUser = authService.register({
+  const _adminUser = authService.register({
     username: 'ops_admin',
     password: 'AdminPassword123!',
     role: 'admin'
@@ -48,14 +48,14 @@ test('Phase 2 — Real-Time Core: WebSockets, Room Isolation, Post-Commit Events
   `).run();
 
   // Register driver user accounts linked to driver IDs
-  const driverAUser = authService.register({
+  const _driverAUser = authService.register({
     username: 'driver_john',
     password: 'DriverPassword123!',
     role: 'driver',
     driver_id: 'DRV-101'
   });
 
-  const driverBUser = authService.register({
+  const _driverBUser = authService.register({
     username: 'driver_jane',
     password: 'DriverPassword123!',
     role: 'driver',
@@ -63,7 +63,7 @@ test('Phase 2 — Real-Time Core: WebSockets, Room Isolation, Post-Commit Events
   });
 
   // Create Dispatcher User
-  const dispatcherUser = authService.register({
+  const _dispatcherUser = authService.register({
     username: 'dispatcher_mike',
     password: 'DispatcherPass123!',
     role: 'dispatcher'

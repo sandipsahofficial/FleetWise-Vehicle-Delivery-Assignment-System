@@ -1,7 +1,6 @@
 const crypto = require('node:crypto');
 const { getDb } = require('../db/database');
 const deliveryRepository = require('../repositories/deliveryRepository');
-const assignmentRepository = require('../repositories/assignmentRepository');
 const auditService = require('./auditService');
 const { BadRequestError, NotFoundError, ConflictError } = require('../utils/errors');
 
@@ -250,7 +249,7 @@ class DeliveryService {
     } catch (err) {
       try {
         db.exec('ROLLBACK');
-      } catch (rollbackErr) {
+      } catch (_rollbackErr) {
         // Rollback error ignored if already rolled back
       }
       throw err;

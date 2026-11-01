@@ -19,7 +19,7 @@ class OutboxWorker {
       return { processed: 0, sent: 0, failed: 0 };
     }
 
-    let batch = [];
+    let batch;
     try {
       batch = notificationRepository.claimBatch(this.batchSize);
     } catch (err) {

@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 const backupService = require('../src/services/backupService');
-const logger = require('../src/utils/logger');
 
 // Parse CLI arguments
 const args = process.argv.slice(2);

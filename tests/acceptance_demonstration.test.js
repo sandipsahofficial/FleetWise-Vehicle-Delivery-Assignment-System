@@ -20,7 +20,7 @@ test('Phase 8 — Final Acceptance Demonstration Sequence', async (t) => {
   let driverId;
   let deliveryId1;
   let deliveryId2;
-  let deliveryId3;
+  let _deliveryId3;
 
   // Step 1: Create a vehicle, driver, and delivery
   await t.test('Step 1: Create a vehicle, driver, and delivery', async () => {

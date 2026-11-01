@@ -35,7 +35,7 @@ function initSocket(httpServer) {
         exp: decoded.exp
       };
       next();
-    } catch (err) {
+    } catch (_err) {
       return next(new Error('Authentication error: Invalid or expired token'));
     }
   });

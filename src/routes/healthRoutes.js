@@ -27,7 +27,7 @@ router.get('/health', (req, res) => {
       timestamp: new Date().toISOString(),
       database: 'unhealthy'
     });
-  } catch (error) {
+  } catch (_error) {
     return res.status(503).json({
       status: 'DOWN',
       service: 'FleetWise',
@@ -56,7 +56,7 @@ router.get('/ready', (req, res) => {
     }
 
     return res.status(200).json({ ready: true });
-  } catch (err) {
+  } catch (_err) {
     return res.status(503).json({ ready: false, error: 'Service Unavailable' });
   }
 });

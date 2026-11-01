@@ -10,7 +10,6 @@ const authService = require('../src/services/authService');
 const notificationService = require('../src/services/notificationService');
 const notificationRepository = require('../src/repositories/notificationRepository');
 const outboxWorker = require('../src/services/notifications/outboxWorker');
-const routingService = require('../src/services/routing/routingService');
 const { RoutingService } = require('../src/services/routing/routingService');
 const HaversineProvider = require('../src/services/routing/haversineProvider');
 const { sanitizeCsvCell } = require('../src/services/reportService');
@@ -93,7 +92,7 @@ test('Phase 3B — Distance & ETA Routing, Outbox Notifications, Maintenance & F
     // Test Bounded LRU Cache (max size 2)
     const mockProvider = {
       calls: 0,
-      async getRoute(s, e) {
+      async getRoute(_s, _e) {
         this.calls++;
         return { distanceKm: 10, durationMinutes: 15, provider: 'mock' };
       }
@@ -533,8 +532,7 @@ test('Phase 3B — Distance & ETA Routing, Outbox Notifications, Maintenance & F
     assert.equal(driverOutboxRes.status, 403);
 
     // 5. Row cap check: 413 Payload Too Large when row count exceeds 5,000
-    const reportService = require('../src/services/reportService');
-    const origPrepare = db.prepare.bind(db);
+        const origPrepare = db.prepare.bind(db);
     db.prepare = (sql, ...args) => {
       if (sql.includes('SELECT COUNT(*) as total FROM deliveries')) {
         return { get: () => ({ total: 5001 }) };

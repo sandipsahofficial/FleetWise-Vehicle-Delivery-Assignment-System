@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const app = require('../src/app');
-const { resetDbForTesting, getDb } = require('../src/db/database');
+const { resetDbForTesting } = require('../src/db/database');
 const authService = require('../src/services/authService');
 
 test('Phase 1 — Production Foundation: Authentication, RBAC, Pagination & Security', async (t) => {
@@ -18,7 +18,7 @@ test('Phase 1 — Production Foundation: Authentication, RBAC, Pagination & Secu
   });
 
   // Seed initial admin user directly for tests
-  const adminUser = authService.register({
+  const _adminUser = authService.register({
     username: 'superadmin',
     password: 'AdminPassword123!',
     role: 'admin'
@@ -27,7 +27,6 @@ test('Phase 1 — Production Foundation: Authentication, RBAC, Pagination & Secu
   let adminTokens;
   let dispatcherTokens;
   let driverATokens;
-  let driverBTokens;
   let driverAEntity;
   let driverBEntity;
 
@@ -224,7 +223,7 @@ test('Phase 1 — Production Foundation: Authentication, RBAC, Pagination & Secu
       body: JSON.stringify({ username: 'driver_alpha', password: 'DriverAlphaPass123!' })
     })).json();
 
-    driverBTokens = await (await fetch(`${baseUrl}/auth/login`, {
+    const _driverBTokens = await (await fetch(`${baseUrl}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'driver_beta', password: 'DriverBetaPass123!' })

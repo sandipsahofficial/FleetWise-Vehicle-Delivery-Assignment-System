@@ -1,5 +1,3 @@
-const fs = require('node:fs');
-
 /**
  * Validates image content using magic bytes.
  * Supports JPEG, PNG, and WebP (RIFF....WEBP).

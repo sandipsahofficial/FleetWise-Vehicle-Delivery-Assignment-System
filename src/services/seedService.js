@@ -43,13 +43,13 @@ class SeedService {
       capacity: 1100,
       status: 'available'
     });
-    const v4 = vehicleService.createVehicle({
+    vehicleService.createVehicle({
       registration_number: 'VAN-504',
       type: 'Ram ProMaster High Roof',
       capacity: 1800,
       status: 'available'
     });
-    const v5 = vehicleService.createVehicle({
+    vehicleService.createVehicle({
       registration_number: 'MNT-105',
       type: 'Isuzu NPR Truck',
       capacity: 3500,
@@ -72,12 +72,12 @@ class SeedService {
       phone: '+1-555-0103',
       availability_status: 'available'
     });
-    const d4 = driverService.createDriver({
+    driverService.createDriver({
       name: 'Sarah Chen',
       phone: '+1-555-0104',
       availability_status: 'available'
     });
-    const d5 = driverService.createDriver({
+    driverService.createDriver({
       name: 'Devon Miller',
       phone: '+1-555-0105',
       availability_status: 'unavailable'
@@ -126,7 +126,7 @@ class SeedService {
     assignmentService.assignDelivery(del2.id, v2.id, d2.id);
 
     // Delivery 3: Pending
-    const del3 = deliveryService.createDelivery({
+    deliveryService.createDelivery({
       pickup_address: 'Hudson Yards Loading Dock B',
       dropoff_address: 'Tribeca Design Studio, 180 Franklin St',
       scheduled_time: new Date(Date.now() + 6 * 3600000).toISOString(),
@@ -135,7 +135,7 @@ class SeedService {
     });
 
     // Delivery 4: Pending
-    const del4 = deliveryService.createDelivery({
+    deliveryService.createDelivery({
       pickup_address: 'Queens Wholesale Floral Market',
       dropoff_address: 'Grand Central Floral Pavilion',
       scheduled_time: new Date(Date.now() + 8 * 3600000).toISOString(),

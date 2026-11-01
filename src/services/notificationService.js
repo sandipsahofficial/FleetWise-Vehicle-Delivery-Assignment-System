@@ -1,12 +1,10 @@
 const crypto = require('node:crypto');
 const notificationRepository = require('../repositories/notificationRepository');
 const trackingRepository = require('../repositories/trackingRepository');
-const proofRepository = require('../repositories/proofRepository');
 const emailProvider = require('./notifications/providers/email');
 const smsProvider = require('./notifications/providers/sms');
 const waProvider = require('./notifications/providers/wa');
 const { escapeHtml, sanitizeHeader } = require('./notifications/providers/email');
-const logger = require('../utils/logger');
 const config = require('../config');
 const { BadRequestError, NotFoundError } = require('../utils/errors');
 
@@ -95,9 +93,9 @@ class NotificationService {
     const params = entry.params_json ? JSON.parse(entry.params_json) : {};
     const safeName = escapeHtml(params.customer_name || 'Valued Customer');
 
-    let subject = 'FleetWise Delivery Update';
-    let htmlText = '';
-    let plainText = '';
+    let subject;
+    let htmlText;
+    let plainText;
 
     if (event === 'delivery_assigned') {
       subject = 'Your FleetWise Shipment is Scheduled';

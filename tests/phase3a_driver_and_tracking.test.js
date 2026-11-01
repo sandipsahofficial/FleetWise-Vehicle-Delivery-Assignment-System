@@ -3,13 +3,10 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const crypto = require('node:crypto');
 const { createApp } = require('../src/app');
 const { initSocket } = require('../src/realtime/socket');
 const { resetDbForTesting, getDb } = require('../src/db/database');
 const authService = require('../src/services/authService');
-const proofRepository = require('../src/repositories/proofRepository');
-const trackingRepository = require('../src/repositories/trackingRepository');
 
 test('Phase 3A — Driver Mobile View, Proof of Delivery (OTP/Photo), Concurrency & Customer Tracking', async (t) => {
   resetDbForTesting();

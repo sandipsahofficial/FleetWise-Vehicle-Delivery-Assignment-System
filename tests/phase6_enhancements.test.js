@@ -164,13 +164,13 @@ test('Phase 6 - Advanced Enhancements & Operational Governance', async (t) => {
       body: JSON.stringify({ registration_number: 'VAN-S1', type: 'Van', capacity: 800 })
     })).json();
 
-    const v2 = await (await fetch(`${baseUrl}/vehicles`, {
+    const _v2 = await (await fetch(`${baseUrl}/vehicles`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ registration_number: 'TRK-S2', type: 'Truck', capacity: 2500 })
     })).json();
 
-    const d1 = await (await fetch(`${baseUrl}/drivers`, {
+    const _d1 = await (await fetch(`${baseUrl}/drivers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Dan Rookie', phone: '+1-555-111-222' })

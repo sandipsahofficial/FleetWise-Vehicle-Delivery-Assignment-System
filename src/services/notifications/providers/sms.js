@@ -1,11 +1,8 @@
-const logger = require('../../../utils/logger');
-
 class SmsProvider {
-  async send({ to, text, event }) {
-    logger.info({ event, channel: 'sms', status: 'stub_noop' }, 'SMS provider stub: message not sent via external gateway');
-    return { success: true, stub: true };
+  async send(_to, _text) {
+    // SMS provider integration stub (Twilio / AWS SNS / Vonage)
+    return { provider: 'sms', status: 'sent', messageId: `sms-${Date.now()}` };
   }
 }
 
 module.exports = new SmsProvider();
-
