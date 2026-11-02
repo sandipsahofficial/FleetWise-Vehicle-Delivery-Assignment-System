@@ -1,4 +1,3 @@
-const crypto = require('node:crypto');
 const { getDb } = require('../db/database');
 const config = require('../config');
 const logger = require('../utils/logger');
@@ -10,6 +9,49 @@ const authService = require('./authService');
 const { ForbiddenError } = require('../utils/errors');
 
 class SeedService {
+  ensureDemoUsers(db, driverId = null) {
+    const adminPass = process.env.ADMIN_PASSWORD || 'AdminPassword123!';
+    const dispatcherPass = process.env.DEMO_DISPATCHER_PASSWORD || 'DispatcherPass123!';
+    const driverPass = process.env.DEMO_DRIVER_PASSWORD || 'DriverPassword123!';
+
+    const admin = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();
+    if (!admin) {
+      try {
+        authService.register({ username: 'admin', password: adminPass, role: 'admin' });
+      } catch (_) {}
+    }
+
+    const dispatcher = db.prepare("SELECT id FROM users WHERE username = 'dispatcher'").get();
+    if (!dispatcher) {
+      try {
+        authService.register({ username: 'dispatcher', password: dispatcherPass, role: 'dispatcher' });
+      } catch (_) {}
+    }
+
+    const driver1 = db.prepare("SELECT id FROM users WHERE username = 'driver1'").get();
+    if (!driver1) {
+      const targetDriverId = driverId || db.prepare("SELECT id FROM drivers LIMIT 1").get()?.id || null;
+      try {
+        authService.register({
+          username: 'driver1',
+          password: driverPass,
+          role: 'driver',
+          driver_id: targetDriverId
+        });
+      } catch (_) {}
+    }
+
+    if (!process.env.DEMO_DISPATCHER_PASSWORD || !process.env.DEMO_DRIVER_PASSWORD || !process.env.ADMIN_PASSWORD) {
+      logger.info({
+        demoCredentials: {
+          admin: { username: 'admin', password: process.env.ADMIN_PASSWORD ? '[CONFIGURED_IN_ENV]' : adminPass },
+          dispatcher: { username: 'dispatcher', password: process.env.DEMO_DISPATCHER_PASSWORD ? '[CONFIGURED_IN_ENV]' : dispatcherPass },
+          driver: { username: 'driver1', password: process.env.DEMO_DRIVER_PASSWORD ? '[CONFIGURED_IN_ENV]' : driverPass }
+        }
+      }, 'Demo user credentials initialized');
+    }
+  }
+
   seedDemoData() {
     const isAllowed = process.env.ALLOW_DEMO_SEED === 'true';
     if (!isAllowed || config.isProd || process.env.NODE_ENV === 'production') {
@@ -21,7 +63,8 @@ class SeedService {
     // Check if data already exists
     const vehCount = db.prepare('SELECT COUNT(*) as count FROM vehicles').get().count;
     if (vehCount > 0) {
-      return { message: 'Demo data already present', seeded: false };
+      this.ensureDemoUsers(db);
+      return { message: 'Demo data already present (demo users verified)', seeded: false };
     }
 
     // 1. Seed Vehicles
@@ -83,25 +126,8 @@ class SeedService {
       availability_status: 'unavailable'
     });
 
-    // 3. Seed Demo Users for Development Testing (no hardcoded fixed credentials in source)
-    const dispatcherPass = process.env.DEMO_DISPATCHER_PASSWORD || crypto.randomBytes(12).toString('base64url');
-    const driverPass = process.env.DEMO_DRIVER_PASSWORD || crypto.randomBytes(12).toString('base64url');
-
-    try {
-      authService.register({ username: 'dispatcher', password: dispatcherPass, role: 'dispatcher' });
-    } catch (_) {}
-    try {
-      authService.register({ username: 'driver1', password: driverPass, role: 'driver', driver_id: d1.id });
-    } catch (_) {}
-
-    if (!process.env.DEMO_DISPATCHER_PASSWORD || !process.env.DEMO_DRIVER_PASSWORD) {
-      logger.info({
-        demoCredentials: {
-          dispatcher: { username: 'dispatcher', password: process.env.DEMO_DISPATCHER_PASSWORD ? '[CONFIGURED_IN_ENV]' : dispatcherPass },
-          driver: { username: 'driver1', password: process.env.DEMO_DRIVER_PASSWORD ? '[CONFIGURED_IN_ENV]' : driverPass }
-        }
-      }, 'One-time generated random credentials for demo users');
-    }
+    // 3. Seed Demo Users for Development Testing
+    this.ensureDemoUsers(db, d1.id);
 
     // 4. Seed Deliveries
     // Delivery 1: In transit
@@ -128,32 +154,49 @@ class SeedService {
     // Delivery 3: Pending
     deliveryService.createDelivery({
       pickup_address: 'Hudson Yards Loading Dock B',
-      dropoff_address: 'Tribeca Design Studio, 180 Franklin St',
+      dropoff_address: 'Wall Street Financial Tower, 60 Wall St, NY',
       scheduled_time: new Date(Date.now() + 6 * 3600000).toISOString(),
       priority: 'medium',
-      notes: 'High-end architectural models'
+      notes: 'Confidential client documentation boxes'
     });
 
     // Delivery 4: Pending
     deliveryService.createDelivery({
-      pickup_address: 'Queens Wholesale Floral Market',
-      dropoff_address: 'Grand Central Floral Pavilion',
+      pickup_address: 'Staten Island Distribution Center',
+      dropoff_address: 'Columbia University Campus Store, 116th St, NY',
       scheduled_time: new Date(Date.now() + 8 * 3600000).toISOString(),
       priority: 'low',
-      notes: 'Refrigerated flowers'
+      notes: 'Textbook semester restock shipment'
     });
 
-    // Delivery 5: Delivered (historical)
+    // Delivery 5: Completed with OTP proof
     const del5 = deliveryService.createDelivery({
-      pickup_address: 'Bronx Distribution Depot',
-      dropoff_address: 'Harlem Community Center',
-      scheduled_time: new Date(Date.now() - 5 * 3600000).toISOString(),
-      priority: 'medium',
-      notes: 'Delivered successfully with signature'
+      pickup_address: 'Long Island City Warehouse 12',
+      dropoff_address: 'Grand Central Terminal Retail Hub, NY',
+      scheduled_time: new Date(Date.now() - 3600000).toISOString(),
+      priority: 'high',
+      notes: 'Morning express delivery - completed'
     });
     assignmentService.assignDelivery(del5.id, v3.id, d3.id);
     deliveryService.updateDeliveryStatus(del5.id, 'in_transit');
-    deliveryService.updateDeliveryStatus(del5.id, 'delivered');
+
+    // Complete delivery with verified OTP proof
+    db.prepare(`
+      INSERT OR REPLACE INTO delivery_proofs (delivery_id, proof_type, completed_at, created_at)
+      VALUES (?, 'otp', DATETIME('now'), DATETIME('now'))
+    `).run(del5.id);
+    db.prepare(`
+      UPDATE deliveries
+      SET status = 'delivered', updated_at = DATETIME('now')
+      WHERE id = ?
+    `).run(del5.id);
+    db.prepare(`
+      UPDATE assignments
+      SET is_active = 0, released_at = DATETIME('now')
+      WHERE delivery_id = ?
+    `).run(del5.id);
+    db.prepare("UPDATE vehicles SET status = 'available', updated_at = DATETIME('now') WHERE id = ?").run(v3.id);
+    db.prepare("UPDATE drivers SET availability_status = 'available', updated_at = DATETIME('now') WHERE id = ?").run(d3.id);
 
     return {
       message: 'Demo dataset successfully seeded with vehicles, drivers, demo users, and deliveries',

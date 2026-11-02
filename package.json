@@ -7,6 +7,7 @@
     "start": "node src/server.js",
     "test": "node --test",
     "lint": "eslint .",
+    "demo:seed": "node scripts/seed.js",
     "backup": "node scripts/backup.js",
     "restore": "node scripts/restore.js"
   },
