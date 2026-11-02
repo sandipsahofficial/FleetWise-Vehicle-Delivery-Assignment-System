@@ -133,3 +133,4 @@ flowchart LR
 - Keyed by `targetDriverId` or `userId`.
 - Cleaned up from memory when socket disconnects.
 - Driver accounts may only submit telematics for their own linked driver record.
+

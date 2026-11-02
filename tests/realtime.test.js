@@ -478,21 +478,23 @@ test('Phase 2 — Real-Time Core: WebSockets, Room Isolation, Post-Commit Events
     const shortToken = jwt.sign(
       { sub: 'user_short', username: 'short_user', role: 'admin' },
       config.jwt.secret,
-      { expiresIn: '1s' }
+      { expiresIn: '2s' }
     );
     const socket = connectClient(shortToken);
-    await new Promise((res) => socket.on('connect', res));
+    await new Promise((resolve, reject) => {
+      socket.once('connect', resolve);
+      socket.once('connect_error', reject);
+    });
     assert.ok(socket.connected);
 
-    // Wait for auto-disconnect triggered by expiry timer
+    // Wait for auto-disconnect triggered by server-side expiry timer
     await new Promise((resolve) => {
-      socket.on('disconnect', () => {
-        resolve();
-      });
+      socket.once('disconnect', () => resolve());
+      socket.once('token_expired', () => resolve());
       setTimeout(() => {
         socket.disconnect();
         resolve();
-      }, 2000);
+      }, 3000);
     });
     assert.ok(!socket.connected);
   });
@@ -501,7 +503,7 @@ test('Phase 2 — Real-Time Core: WebSockets, Room Isolation, Post-Commit Events
   // 7. Socket Location Event Rate Limiting
   // -------------------------------------------------------------
   await t.test('7. Socket location updates are rate-limited on rapid calls', async () => {
-    let mockTime = 1000000;
+    let mockTime = Date.now();
     ioServer.setClock(() => mockTime);
 
     const driverASocket = connectClient(driverATokens.accessToken);

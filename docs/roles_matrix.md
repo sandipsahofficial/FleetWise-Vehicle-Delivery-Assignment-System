@@ -82,3 +82,4 @@ This document provides a comprehensive mapping of all API routes, HTTP methods, 
 | `GET` | `/api/dashboard/suggestions` | `admin`, `dispatcher` | Scored recommendation engine for vehicle/driver matching. |
 | `GET` | `/api/audit-logs` | `admin` | Immutable audit trail. Zero PII stored in log details. |
 | `POST` | `/api/seed` | `admin` | Development demo seeding. Refused in production or when `ALLOW_DEMO_SEED !== 'true'`. |
+

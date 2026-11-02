@@ -88,3 +88,4 @@ The following items represent conscious architectural trade-offs and residual ri
 6. **SQLite Single-Instance SPOF**:
    - *Risk*: A physical host failure or volume unmount causes temporary downtime until Fly.io or the host orchestrator restarts the Machine.
    - *Mitigation*: Documented automated backup (`scripts/backup.js`) with integrity verification and offline recovery runbook (`docs/deployment-flyio.md`).
+

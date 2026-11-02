@@ -58,11 +58,15 @@ function initSocket(httpServer, options = {}) {
         socket.disconnect(true);
         return;
       }
-      expiryTimer = setTimeout(() => {
-        logger.info({ username }, 'Socket access token expired; disconnecting client');
-        socket.emit('token_expired', { message: 'Access token expired' });
-        socket.disconnect(true);
-      }, msUntilExpiry);
+      // Node.js setTimeout maximum delay is 2147483647 ms (32-bit signed integer)
+      const maxDelay = 2147483647;
+      if (msUntilExpiry <= maxDelay) {
+        expiryTimer = setTimeout(() => {
+          logger.info({ username }, 'Socket access token expired; disconnecting client');
+          socket.emit('token_expired', { message: 'Access token expired' });
+          socket.disconnect(true);
+        }, msUntilExpiry);
+      }
     }
 
     // Role-based room joining
